@@ -562,8 +562,7 @@ router.get("/daily-summary",
       // Error handling
       console.error('Daily summary error:', error);
       res.status(400).json({
-        error: error.message,
-        supported_timezones: supportedTimezones
+        error: error.message
       });
     }
   }
