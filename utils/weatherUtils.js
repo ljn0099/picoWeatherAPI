@@ -14,8 +14,8 @@ const SENSOR_FIELD_MAP = {
     lux: 'lux',
     uvi: 'uvi',
     rain_gauge: 'rain',
-    anemometer: ['average_speed', 'peak_speed'],
-    wind_vane: 'direction'
+    anemometer: ['wind_speed', 'gust_speed'],
+    wind_vane: ['wind_direction', 'gust_direction']
   },
   hourly: {
     temperature: 'avg_temperature',
@@ -24,8 +24,8 @@ const SENSOR_FIELD_MAP = {
     lux: 'avg_lux',
     uvi: 'avg_uvi',
     rain_gauge: 'sum_rain',
-    anemometer: ['avg_speed', 'max_peak_speed'],
-    wind_vane: 'mode_direction'
+    anemometer: ['avg_wind_speed', 'max_gust_speed', 'standard_deviation_speed'],
+    wind_vane: ['avg_wind_direction', 'max_gust_direction']
   },
   daily: {
     temperature: ['max_temperature', 'min_temperature'],
@@ -34,8 +34,8 @@ const SENSOR_FIELD_MAP = {
     lux: ['max_lux', 'min_lux'],
     uvi: 'max_uvi',
     rain_gauge: 'sum_rain',
-    anemometer: 'max_peak_speed',
-    wind_vane: 'mode_direction'
+    anemometer: ['avg_wind_speed', 'max_gust_speed', 'standard_deviation_speed'],
+    wind_vane: ['avg_wind_direction', 'max_gust_direction']
   }
 };
 

@@ -251,11 +251,13 @@ router.get("/station-info", async (req, res) => {
  *                     type: number
  *                   rain:
  *                     type: number
- *                   average_speed:
+ *                   wind_speed:
  *                     type: number
- *                   peak_speed:
+ *                   gust_speed:
  *                     type: number
- *                   direction:
+ *                   wind_direction:
+ *                     type: number
+ *                   gust_direction:
  *                     type: number
  *                   lux:
  *                     type: integer
@@ -361,11 +363,13 @@ router.get("/raw-data",
  *                     type: number
  *                   sum_rain:
  *                     type: number
- *                   avg_speed:
+ *                   avg_wind_speed:
  *                     type: number
- *                   max_peak_speed:
+ *                   max_gust_speed:
  *                     type: number
- *                   mode_direction:
+ *                   avg_wind_direction:
+ *                     type: number
+ *                   max_gust_direction:
  *                     type: number
  *                   avg_lux:
  *                     type: integer
@@ -466,9 +470,13 @@ router.get("/hourly-summary",
  *                     type: number
  *                   min_pressure:
  *                     type: number
- *                   max_peak_speed:
+ *                   avg_wind_speed:
  *                     type: number
- *                   mode_direction:
+ *                   max_gust_speed:
+ *                     type: number
+ *                   avg_wind_direction:
+ *                     type: number
+ *                   max_gust_direction:
  *                     type: number
  *                   max_uvi:
  *                     type: number
@@ -481,76 +489,85 @@ router.get("/hourly-summary",
  *       400:
  *         description: Invalid parameters
  */
+/**
+ * Daily weather summary endpoint
+ * Optimized for timezones matching Europe/Madrid's UTC offset
+ */
 router.get("/daily-summary",
   validateFields('daily'),
   async (req, res) => {
     try {
+      // Extract query parameters
       const { station_id, date, start_date, end_date, timezone, fields } = req.query;
 
+      // Validate required parameters
       if (!station_id || !timezone || (!date && (!start_date || !end_date))) {
-        throw new Error("Missing required parameters: station_id and timezone are always required, plus either date or both start_date and end_date");
+        throw new Error("Required parameters: station_id, timezone, and date range");
       }
 
-      // List of timezones that follow exactly the same DST rules as Europe/Madrid
-      const allowedTimezones = [
-        'Europe/Madrid',
-        'Europe/Paris',
-        'Europe/Berlin',
-        'Europe/Rome',
-        'Europe/Amsterdam',
-        'Europe/Brussels',
-        'Europe/Vienna',
-        'Europe/Prague',
-        'Europe/Warsaw',
-        'Europe/Copenhagen',
-        'Europe/Monaco',
-        'Europe/Luxembourg',
-        'Europe/Andorra',
-        'Europe/Gibraltar',
-        'Africa/Ceuta'
+      // Supported timezones (same UTC offset as Madrid)
+      const supportedTimezones = [
+        'Europe/Madrid', 'Europe/Paris', 'Europe/Berlin', 'Europe/Rome',
+        'Europe/Brussels', 'Europe/Amsterdam', 'Europe/Luxembourg',
+        'Europe/Monaco', 'Europe/Vatican', 'Europe/Andorra',
+        'Europe/Gibraltar', 'Africa/Ceuta'
       ];
 
-      if (!allowedTimezones.includes(timezone)) {
-        throw new Error(`Timezone ${timezone} is not supported. Only timezones that follow the same DST rules as Europe/Madrid are allowed.`);
+      // Validate timezone compatibility
+      if (!supportedTimezones.includes(timezone)) {
+        throw new Error(`Unsupported timezone. Please use one of: ${supportedTimezones.join(', ')}`);
       }
 
-      // Convert station_id to number
-      const stationIdNum = parseInt(station_id, 10);
-      if (isNaN(stationIdNum)) {
-        throw new Error("station_id must be a number");
-      }
+      // Parse date range parameters
+      const { queryStart, queryEnd } = parseDateParams({
+        date,
+        start_date,
+        end_date,
+        timezone
+      });
 
-      // Parse date parameters
-      const { queryStart, queryEnd } = parseDateParams({ date, start_date, end_date, timezone });
-
+      // Build fields selection
       const selectedFields = fields ?
         ['station_id', 'date', ...fields.split(',').map(f => f.trim())].join(', ') :
         req.allowedFields.join(', ');
 
+      // Execute database query
       const result = await pool.query(
         `SELECT ${selectedFields} FROM weather_daily
-         WHERE station_id = $1::integer
-         AND date >= $2::date
-         AND date <= $3::date
+         WHERE station_id = $1
+         AND date >= $2
+         AND date <= $3
          ORDER BY date`,
-        [stationIdNum, queryStart.toFormat('yyyy-MM-dd'), queryEnd.toFormat('yyyy-MM-dd')]
+        [station_id, queryStart.toSQLDate(), queryEnd.toSQLDate()]
       );
 
+      // Handle empty results
       if (result.rows.length === 0) {
-        throw new Error("No data found for the specified period");
+        throw new Error("No data found for the specified criteria");
       }
 
-      res.json(result.rows.map(row => ({
+      // Format response data
+      const formattedData = result.rows.map(row => ({
         ...row,
-        date: DateTime.fromSQL(row.date).setZone(timezone).toISODate()
-      })));
-    } catch (err) {
-      console.error(err);
-      res.status(400).json({ error: err.message });
+        // Convert to ISO string with timezone (start of day)
+        date: DateTime.fromJSDate(row.date, { zone: timezone })
+                  .startOf('day')
+                  .toISO()
+      }));
+
+      // Return successful response
+      res.json(formattedData);
+
+    } catch (error) {
+      // Error handling
+      console.error('Daily summary error:', error);
+      res.status(400).json({
+        error: error.message,
+        supported_timezones: supportedTimezones
+      });
     }
   }
 );
-
 /**
  * @swagger
  * /weather/rainfall-last-mins:
