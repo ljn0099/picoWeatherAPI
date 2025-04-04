@@ -409,7 +409,7 @@ router.get("/hourly-summary",
  * @swagger
  * /weather/daily-summary:
  *   get:
- *     summary: Get daily aggregated data (only for timezones matching Europe/Madrid)
+ *     summary: Get daily aggregated data (optimized for timezones matching Europe/Madrid)
  *     tags: [Weather]
  *     parameters:
  *       - in: query
@@ -489,84 +489,163 @@ router.get("/hourly-summary",
  *       400:
  *         description: Invalid parameters
  */
-/**
- * Daily weather summary endpoint
- * Optimized for timezones matching Europe/Madrid's UTC offset
- */
 router.get("/daily-summary",
   validateFields('daily'),
   async (req, res) => {
     try {
-      // Extract query parameters
+      // Extract and validate parameters
       const { station_id, date, start_date, end_date, timezone, fields } = req.query;
-
-      // Validate required parameters
-      if (!station_id || !timezone || (!date && (!start_date || !end_date))) {
-        throw new Error("Required parameters: station_id, timezone, and date range");
+      
+      if (!station_id) throw new Error("station_id is required");
+      if (!timezone) throw new Error("timezone is required");
+      if (!DateTime.now().setZone(timezone).isValid) throw new Error("Invalid timezone");
+      if (!date && (!start_date || !end_date)) {
+        throw new Error("Either date or both start_date and end_date are required");
       }
 
-      // Supported timezones (same UTC offset as Madrid)
-      const supportedTimezones = [
-        'Europe/Madrid', 'Europe/Paris', 'Europe/Berlin', 'Europe/Rome',
-        'Europe/Brussels', 'Europe/Amsterdam', 'Europe/Luxembourg',
-        'Europe/Monaco', 'Europe/Vatican', 'Europe/Andorra',
-        'Europe/Gibraltar', 'Africa/Ceuta'
-      ];
-
-      // Validate timezone compatibility
-      if (!supportedTimezones.includes(timezone)) {
-        throw new Error(`Unsupported timezone. Please use one of: ${supportedTimezones.join(', ')}`);
-      }
-
-      // Parse date range parameters
+      // Parse date range
       const { queryStart, queryEnd } = parseDateParams({
-        date,
-        start_date,
-        end_date,
-        timezone
+        date, start_date, end_date, timezone
       });
 
-      // Build fields selection
-      const selectedFields = fields ?
-        ['station_id', 'date', ...fields.split(',').map(f => f.trim())].join(', ') :
-        req.allowedFields.join(', ');
+      // Build field selection
+      const selectedFields = fields 
+        ? ['station_id', 'date', ...new Set(fields.split(',').map(f => f.trim()))]
+        : req.allowedFields;
 
-      // Execute database query
-      const result = await pool.query(
-        `SELECT ${selectedFields} FROM weather_daily
-         WHERE station_id = $1
-         AND date >= $2
-         AND date <= $3
-         ORDER BY date`,
-        [station_id, queryStart.toSQLDate(), queryEnd.toSQLDate()]
-      );
+      // Execute appropriate query
+      let result;
+      if (await isCompatibleTimezone(timezone, queryStart, queryEnd)) {
+        result = await pool.query(
+          `SELECT ${selectedFields.join(', ')} 
+           FROM weather_daily
+           WHERE station_id = $1
+             AND date >= $2
+             AND date <= $3
+           ORDER BY date`,
+          [station_id, queryStart.toSQLDate(), queryEnd.toSQLDate()]
+        );
+      } else {
+        result = await pool.query(
+          buildDynamicQuery(selectedFields),
+          [station_id, queryStart.toISO(), queryEnd.toISO(), timezone]
+        );
+      }
 
-      // Handle empty results
-      if (result.rows.length === 0) {
+      // Format response with correct timezone
+      const formattedData = result.rows.map(row => {
+        const dateObj = DateTime.fromJSDate(row.date, { zone: 'UTC' })
+          .setZone(timezone)
+          .startOf('day');
+        
+        return {
+          ...row,
+          date: dateObj.toISO()
+        };
+      });
+
+      // Filter to exact requested dates
+      const filteredData = formattedData.filter(entry => {
+        const entryDate = DateTime.fromISO(entry.date);
+        return entryDate >= queryStart && entryDate <= queryEnd;
+      });
+
+      if (filteredData.length === 0) {
         throw new Error("No data found for the specified criteria");
       }
 
-      // Format response data
-      const formattedData = result.rows.map(row => ({
-        ...row,
-        // Convert to ISO string with timezone (start of day)
-        date: DateTime.fromJSDate(row.date, { zone: timezone })
-                  .startOf('day')
-                  .toISO()
-      }));
-
-      // Return successful response
-      res.json(formattedData);
+      res.json(filteredData);
 
     } catch (error) {
-      // Error handling
       console.error('Daily summary error:', error);
-      res.status(400).json({
-        error: error.message
+      res.status(400).json({ 
+        error: error.message,
+        details: error.details || null
       });
     }
   }
 );
+
+/**
+ * Builds dynamic query for incompatible timezones
+ */
+function buildDynamicQuery(fields) {
+  const fieldMap = {
+    'max_temperature': 'MAX(temperature) AS max_temperature',
+    'min_temperature': 'MIN(temperature) AS min_temperature',
+    'max_humidity': 'MAX(humidity) AS max_humidity',
+    'min_humidity': 'MIN(humidity) AS min_humidity',
+    'max_pressure': 'MAX(pressure) AS max_pressure',
+    'min_pressure': 'MIN(pressure) AS min_pressure',
+    'max_gust_speed': 'MAX(gust_speed) AS max_gust_speed',
+    'max_gust_direction': 'MODE() WITHIN GROUP (ORDER BY gust_direction) AS max_gust_direction',
+    'avg_wind_speed': 'AVG(wind_speed) AS avg_wind_speed',
+    'avg_wind_direction': `(
+      WITH wind AS (
+        SELECT AVG(SIN(RADIANS(wind_direction))) AS avg_sin,
+               AVG(COS(RADIANS(wind_direction))) AS avg_cos
+        FROM data
+      )
+      SELECT CASE
+        WHEN avg_sin IS NOT NULL AND avg_cos IS NOT NULL
+        THEN (360 + DEGREES(ATAN2(avg_sin, avg_cos)))::NUMERIC % 360.0
+        ELSE NULL
+      END FROM wind
+    ) AS avg_wind_direction`,
+    'standard_deviation_speed': 'STDDEV(wind_speed) AS standard_deviation_speed',
+    'max_uvi': 'MAX(uvi) AS max_uvi',
+    'max_lux': 'MAX(lux) AS max_lux',
+    'min_lux': 'MIN(lux) AS min_lux',
+    'sum_rain': 'SUM(rain) AS sum_rain'
+  };
+
+  const selectedFields = fields
+    .filter(f => f !== 'station_id' && f !== 'date')
+    .map(f => fieldMap[f] || '')
+    .filter(Boolean);
+
+  return `
+    WITH data AS (
+      SELECT
+        station_id,
+        (date AT TIME ZONE 'UTC' AT TIME ZONE $4)::date AS local_date,
+        temperature,
+        humidity,
+        pressure,
+        wind_speed,
+        wind_direction,
+        gust_speed,
+        gust_direction,
+        uvi,
+        lux,
+        rain
+      FROM weather_data
+      WHERE station_id = $1
+        AND date >= $2
+        AND date <= $3
+    )
+    SELECT
+      station_id,
+      local_date AS date,
+      ${selectedFields.join(',\n      ')}
+    FROM data
+    GROUP BY station_id, local_date
+    ORDER BY local_date`;
+}
+
+/**
+ * Checks if a timezone has the same UTC offset as Madrid for all dates in range
+ */
+async function isCompatibleTimezone(tz, startDate, endDate) {
+  const days = endDate.diff(startDate, 'days').days;
+  for (let i = 0; i <= days; i++) {
+    const currentDate = startDate.plus({ days: i });
+    const madridOffset = currentDate.setZone('Europe/Madrid').offset;
+    const tzOffset = currentDate.setZone(tz).offset;
+    if (madridOffset !== tzOffset) return false;
+  }
+  return true;
+}
 /**
  * @swagger
  * /weather/rainfall-last-mins:
