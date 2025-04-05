@@ -7,6 +7,8 @@ const setupDocs = require("./routes/docs");
 
 const app = express();
 
+app.set('trust proxy', 1);
+
 // Security Middleware
 app.use(helmet());
 app.use(cors());
@@ -15,7 +17,10 @@ app.use(express.json());
 // Rate Limiting (100 requests per 15 minutes)
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100
+  max: 100,
+  keyGenerator: (req) => {
+    return req.ip;
+  }
 });
 app.use(limiter);
 
