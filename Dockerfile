@@ -44,10 +44,6 @@ EXPOSE ${PORT}
 # Switch to non-root user
 USER weatherApi
 
-# Health check (verify app is responsive)
-HEALTHCHECK --interval=30s --timeout=3s \
-  CMD curl -f http://localhost:5000/health || exit 1
-
 # Entrypoint for proper signal handling
 ENTRYPOINT ["dumb-init", "--"]
 
