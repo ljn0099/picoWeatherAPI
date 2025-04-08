@@ -23,7 +23,7 @@ const options = {
 const specs = swaggerJsdoc(options);
 
 module.exports = (app) => {
-  app.use("/api-docs", 
+  app.use("/", 
     swaggerUi.serve, 
     swaggerUi.setup(specs, {
       customSiteTitle: "Weather API Docs",
@@ -31,7 +31,7 @@ module.exports = (app) => {
     })
   );
   
-  app.get("/api-docs.json", (req, res) => {
+  app.get("/.json", (req, res) => {
     res.setHeader("Content-Type", "application/json");
     res.send(specs);
   });
