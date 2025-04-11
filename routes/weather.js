@@ -34,7 +34,9 @@ function parseDateParams({ date, start_date, end_date, timezone }) {
         queryStart = isoDate.startOf("day");
         queryEnd = isoDate.endOf("day");
     } else {
-        queryStart = DateTime.fromISO(start_date, { zone: timezone }).startOf("day");
+        queryStart = DateTime.fromISO(start_date, { zone: timezone }).startOf(
+            "day",
+        );
         queryEnd = DateTime.fromISO(end_date, { zone: timezone }).endOf("day");
 
         if (!queryStart.isValid || !queryEnd.isValid)
@@ -174,6 +176,9 @@ router.get("/get-stations", async (req, res) => {
  *                   type: string
  *                 location:
  *                   type: string
+ *                 measure_interval_mins:
+ *                   type: integer
+ *                   description: Interval in minutes between measurements
  *                 sensors:
  *                   type: object
  *                   properties:
@@ -193,7 +198,7 @@ router.get("/get-stations", async (req, res) => {
  *                       type: boolean
  *                     gust_direction:
  *                       type: boolean
- *                     light:
+ *                     lux:
  *                       type: boolean
  *                     uv_index:
  *                       type: boolean
@@ -209,6 +214,7 @@ router.get("/get-stations", async (req, res) => {
  *                 details:
  *                   type: string
  */
+
 router.get("/station-info", async (req, res) => {
     try {
         const { station_id } = req.query;
@@ -231,7 +237,8 @@ router.get("/station-info", async (req, res) => {
           anemometer,
           wind_vane,
           lux,
-          uvi
+          uvi,
+          measure_interval_mins
        FROM weather_stations
        WHERE station_id = $1`,
             [station_id],
@@ -249,6 +256,7 @@ router.get("/station-info", async (req, res) => {
             station_id,
             name: stationData.name,
             location: stationData.location,
+            measure_interval_mins: stationData.measure_interval_mins,
             sensors: {
                 temperature: stationData.temperature,
                 humidity: stationData.humidity,
