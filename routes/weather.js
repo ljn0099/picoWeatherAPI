@@ -25,7 +25,6 @@ function formatResponseRows(rows, timezone) {
     }));
 }
 
-// Helper function to parse date parameters
 function parseDateParams({ date, start_date, end_date, timezone }) {
     let queryStart, queryEnd;
 
@@ -35,8 +34,8 @@ function parseDateParams({ date, start_date, end_date, timezone }) {
         queryStart = isoDate.startOf("day");
         queryEnd = isoDate.endOf("day");
     } else {
-        queryStart = DateTime.fromISO(start_date, { zone: timezone });
-        queryEnd = DateTime.fromISO(end_date, { zone: timezone });
+        queryStart = DateTime.fromISO(start_date, { zone: timezone }).startOf("day");
+        queryEnd = DateTime.fromISO(end_date, { zone: timezone }).endOf("day");
 
         if (!queryStart.isValid || !queryEnd.isValid)
             throw new Error("Invalid date format in start_date or end_date");
