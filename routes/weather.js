@@ -82,7 +82,7 @@ async function executeWeatherQuery({
 }
 /**
  * @swagger
- * /get-stations:
+ * /weather/get-stations:
  *   get:
  *     summary: Get a list of all weather stations
  *     tags: [Weather]
@@ -189,6 +189,10 @@ router.get("/get-stations", async (req, res) => {
  *                       type: boolean
  *                     wind_direction:
  *                       type: boolean
+ *                     gust_speed:
+ *                       type: boolean
+ *                     gust_direction:
+ *                       type: boolean
  *                     light:
  *                       type: boolean
  *                     uv_index:
@@ -252,6 +256,8 @@ router.get("/station-info", async (req, res) => {
                 rain: stationData.rain_gauge,
                 wind_speed: stationData.anemometer,
                 wind_direction: stationData.wind_vane,
+                gust_speed: stationData.anemometer,
+                gust_direction: stationData.anemometer && stationData.wind_vane,
                 light: stationData.lux,
                 uv_index: stationData.uvi,
             },
