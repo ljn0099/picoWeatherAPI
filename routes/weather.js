@@ -258,8 +258,8 @@ router.get("/station-info", async (req, res) => {
                 wind_direction: stationData.wind_vane,
                 gust_speed: stationData.anemometer,
                 gust_direction: stationData.anemometer && stationData.wind_vane,
-                light: stationData.lux,
-                uv_index: stationData.uvi,
+                lux: stationData.lux,
+                uvi: stationData.uvi,
             },
         };
 

@@ -98,6 +98,24 @@ async function getAllowedFields(stationId, dataType) {
         )
         .flatMap(([sensor]) => {
             const fields = SENSOR_FIELD_MAP[dataType][sensor];
+            // Special handling for gust_direction fields
+            if (sensor === "wind_vane" && dataType === "raw" && fields.includes("gust_direction")) {
+                // Only include gust_direction if both anemometer and wind_vane are enabled
+                if (stationSensors.anemometer && stationSensors.wind_vane) {
+                    return fields;
+                } else {
+                    return fields.filter(f => f !== "gust_direction");
+                }
+            }
+            // Similar handling for hourly and daily gust_direction fields
+            if (sensor === "wind_vane" && (dataType === "hourly" || dataType === "daily") && 
+                fields.some(f => f.includes("gust_direction"))) {
+                if (stationSensors.anemometer && stationSensors.wind_vane) {
+                    return fields;
+                } else {
+                    return fields.filter(f => !f.includes("gust_direction"));
+                }
+            }
             return Array.isArray(fields) ? fields : [fields];
         });
 
