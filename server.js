@@ -7,7 +7,7 @@ const setupDocs = require("./routes/docs");
 
 const app = express();
 
-app.set('trust proxy', 1);
+app.set("trust proxy", 1);
 
 // Security Middleware
 app.use(helmet());
@@ -16,11 +16,11 @@ app.use(express.json());
 
 // Rate Limiting (100 requests per 15 minutes)
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100,
-  keyGenerator: (req) => {
-    return req.ip;
-  }
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100,
+    keyGenerator: (req) => {
+        return req.ip;
+    },
 });
 app.use(limiter);
 
@@ -29,7 +29,7 @@ app.use("/weather", weatherRoutes);
 
 // Health Check Endpoint
 app.get("/health", (req, res) => {
-  res.status(200).json({ status: "healthy" });
+    res.status(200).json({ status: "healthy" });
 });
 
 // API Documentation
@@ -37,19 +37,19 @@ setupDocs(app);
 
 // Error Handling Middleware
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({
-    error: "Internal Server Error",
-    message: err.message
-  });
+    console.error(err.stack);
+    res.status(500).json({
+        error: "Internal Server Error",
+        message: err.message,
+    });
 });
 
 const PORT = parseInt(process.env.PORT, 10) || 5000;
 const ENVIRONMENT = process.env.NODE_ENV || "development";
 
 app.listen(PORT, () => {
-  console.log(`Server running in ${ENVIRONMENT} mode`);
-  console.log(`API running at http://localhost:${PORT}`);
-  console.log(`API docs at http://localhost:${PORT}/api-docs`);
-  console.log(`Health check at http://localhost:${PORT}/health`);
+    console.log(`Server running in ${ENVIRONMENT} mode`);
+    console.log(`API running at http://localhost:${PORT}`);
+    console.log(`API docs at http://localhost:${PORT}/api-docs`);
+    console.log(`Health check at http://localhost:${PORT}/health`);
 });
