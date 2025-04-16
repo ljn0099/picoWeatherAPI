@@ -604,59 +604,146 @@ router.get("/daily-summary", validateFields("daily"), async (req, res) => {
             timezone,
         });
 
-        // Build field selection
+        // Get allowed fields for this station (already filtered by station sensors)
+        // The validateFields middleware already populated req.allowedFields
+
+        // Determine which fields to include in the response
         const selectedFields = fields
-            ? [
-                  "station_id",
-                  "date",
-                  ...new Set(fields.split(",").map((f) => f.trim())),
-              ]
+            ? ["station_id", "date", ...fields.split(",").map((f) => f.trim())]
             : req.allowedFields;
 
-        // Execute appropriate query
+        // Check if timezone is compatible with the database table
+        const isCompatible = await isCompatibleTimezone(
+            timezone,
+            queryStart,
+            queryEnd,
+        );
+
         let result;
-        if (await isCompatibleTimezone(timezone, queryStart, queryEnd)) {
+
+        // If timezone is compatible with the database table, use direct query
+        if (isCompatible) {
+            // Use existing records from the database table
             result = await pool.query(
-                `SELECT ${selectedFields.join(", ")} 
-           FROM weather_daily
-           WHERE station_id = $1
-             AND date >= $2
-             AND date <= $3
-           ORDER BY date`,
+                `SELECT ${selectedFields.join(", ")}
+                FROM weather_daily
+                WHERE station_id = $1
+                AND date >= $2
+                AND date <= $3
+                ORDER BY date`,
                 [station_id, queryStart.toSQLDate(), queryEnd.toSQLDate()],
             );
         } else {
-            result = await pool.query(buildDynamicQuery(selectedFields), [
-                station_id,
-                queryStart.toISO(),
-                queryEnd.toISO(),
-                timezone,
-            ]);
+            // For incompatible timezones, calculate on the fly using the provided query
+            result = await pool.query(
+                `WITH date_range AS (
+                    SELECT
+                        generate_series(
+                            date_trunc('day', $2::timestamptz AT TIME ZONE $3),
+                            date_trunc('day', $4::timestamptz AT TIME ZONE $3),
+                            interval '1 day'
+                        ) AS local_day
+                ),
+                day_ranges AS (
+                    SELECT
+                        local_day AS local_day_start,
+                        local_day + interval '1 day' - interval '1 second' AS local_day_end,
+                        local_day::date AS local_date
+                    FROM date_range
+                ),
+                utc_ranges AS (
+                    SELECT
+                        local_day_start,
+                        local_day_end,
+                        local_day_start AT TIME ZONE $3 AT TIME ZONE 'UTC' AS utc_day_start,
+                        local_day_end AT TIME ZONE $3 AT TIME ZONE 'UTC' AS utc_day_end,
+                        local_date
+                    FROM day_ranges
+                ),
+                filtered_data AS (
+                    SELECT 
+                        wd.*,
+                        ur.local_date
+                    FROM weather_data wd
+                    JOIN utc_ranges ur ON 
+                        wd.date >= ur.utc_day_start AND 
+                        wd.date <= ur.utc_day_end
+                    WHERE wd.station_id = $1
+                ),
+                daily_max_gust AS (
+                    SELECT 
+                        local_date,
+                        gust_speed, 
+                        gust_direction
+                    FROM (
+                        SELECT 
+                            local_date,
+                            gust_speed, 
+                            gust_direction,
+                            ROW_NUMBER() OVER (PARTITION BY local_date ORDER BY gust_speed DESC) as rn
+                        FROM filtered_data
+                        WHERE gust_speed IS NOT NULL
+                    ) t
+                    WHERE rn = 1
+                )
+                SELECT
+                    $1::integer AS station_id,
+                    fd.local_date AS date,
+                    MAX(fd.temperature) FILTER (WHERE fd.temperature IS NOT NULL) AS max_temperature,
+                    MIN(fd.temperature) FILTER (WHERE fd.temperature IS NOT NULL) AS min_temperature,
+                    MAX(fd.humidity) FILTER (WHERE fd.humidity IS NOT NULL) AS max_humidity,
+                    MIN(fd.humidity) FILTER (WHERE fd.humidity IS NOT NULL) AS min_humidity,
+                    MAX(fd.pressure) FILTER (WHERE fd.pressure IS NOT NULL) AS max_pressure,
+                    MIN(fd.pressure) FILTER (WHERE fd.pressure IS NOT NULL) AS min_pressure,
+                    MAX(dmg.gust_speed) AS max_gust_speed,
+                    MAX(dmg.gust_direction) AS max_gust_direction,
+                    CASE WHEN COUNT(fd.wind_speed) > 0 THEN STDDEV_POP(fd.wind_speed) ELSE NULL END AS standard_deviation_speed,
+                    CASE WHEN COUNT(fd.wind_speed) > 0 THEN AVG(fd.wind_speed) ELSE NULL END AS avg_wind_speed,
+                    CASE WHEN COUNT(fd.wind_direction) > 0 THEN
+                        MOD(
+                            CAST(DEGREES(ATAN2(SUM(SIN(RADIANS(fd.wind_direction))), SUM(COS(RADIANS(fd.wind_direction))))) + 360.0 AS numeric),
+                            CAST(360.0 AS numeric)
+                        )
+                    ELSE NULL END AS avg_wind_direction,
+                    MAX(fd.uvi) FILTER (WHERE fd.uvi IS NOT NULL) AS max_uvi,
+                    MAX(fd.lux) FILTER (WHERE fd.lux IS NOT NULL) AS max_lux,
+                    MIN(fd.lux) FILTER (WHERE fd.lux IS NOT NULL) AS min_lux,
+                    SUM(fd.rain) FILTER (WHERE fd.rain IS NOT NULL) AS sum_rain
+                FROM filtered_data fd
+                LEFT JOIN daily_max_gust dmg ON fd.local_date = dmg.local_date
+                GROUP BY fd.local_date
+                ORDER BY fd.local_date`,
+                [station_id, queryStart.toISO(), timezone, queryEnd.toISO()],
+            );
         }
 
-        // Format response with correct timezone
+        // Format the results to include only the selected fields and proper date formatting
         const formattedData = result.rows.map((row) => {
-            const dateObj = DateTime.fromJSDate(row.date, { zone: "UTC" })
-                .setZone(timezone)
-                .startOf("day");
-
-            return {
-                ...row,
-                date: dateObj.toISO(),
+            // Create a base object with the date and station ID
+            const baseObj = {
+                station_id: parseInt(station_id),
+                date: DateTime.fromJSDate(row.date, { setZone: true }).toISODate()
             };
+
+            // Add each field that was requested
+            return selectedFields.reduce((obj, field) => {
+                // Skip station_id and date as they're already included
+                if (
+                    field !== "station_id" &&
+                    field !== "date" &&
+                    row[field] !== undefined
+                ) {
+                    obj[field] = row[field];
+                }
+                return obj;
+            }, baseObj);
         });
 
-        // Filter to exact requested dates
-        const filteredData = formattedData.filter((entry) => {
-            const entryDate = DateTime.fromISO(entry.date);
-            return entryDate >= queryStart && entryDate <= queryEnd;
-        });
-
-        if (filteredData.length === 0) {
+        if (formattedData.length === 0) {
             throw new Error("No data found for the specified criteria");
         }
 
-        res.json(filteredData);
+        res.json(formattedData);
     } catch (error) {
         console.error("Daily summary error:", error);
         res.status(400).json({
@@ -665,75 +752,6 @@ router.get("/daily-summary", validateFields("daily"), async (req, res) => {
         });
     }
 });
-
-/**
- * Builds dynamic query for incompatible timezones
- */
-function buildDynamicQuery(fields) {
-    const fieldMap = {
-        max_temperature: "MAX(temperature) AS max_temperature",
-        min_temperature: "MIN(temperature) AS min_temperature",
-        max_humidity: "MAX(humidity) AS max_humidity",
-        min_humidity: "MIN(humidity) AS min_humidity",
-        max_pressure: "MAX(pressure) AS max_pressure",
-        min_pressure: "MIN(pressure) AS min_pressure",
-        max_gust_speed: "MAX(gust_speed) AS max_gust_speed",
-        max_gust_direction:
-            "MODE() WITHIN GROUP (ORDER BY gust_direction) AS max_gust_direction",
-        avg_wind_speed: "AVG(wind_speed) AS avg_wind_speed",
-        avg_wind_direction: `(
-      WITH wind AS (
-        SELECT AVG(SIN(RADIANS(wind_direction))) AS avg_sin,
-               AVG(COS(RADIANS(wind_direction))) AS avg_cos
-        FROM data
-      )
-      SELECT CASE
-        WHEN avg_sin IS NOT NULL AND avg_cos IS NOT NULL
-        THEN (360 + DEGREES(ATAN2(avg_sin, avg_cos)))::NUMERIC % 360.0
-        ELSE NULL
-      END FROM wind
-    ) AS avg_wind_direction`,
-        standard_deviation_speed:
-            "STDDEV(wind_speed) AS standard_deviation_speed",
-        max_uvi: "MAX(uvi) AS max_uvi",
-        max_lux: "MAX(lux) AS max_lux",
-        min_lux: "MIN(lux) AS min_lux",
-        sum_rain: "SUM(rain) AS sum_rain",
-    };
-
-    const selectedFields = fields
-        .filter((f) => f !== "station_id" && f !== "date")
-        .map((f) => fieldMap[f] || "")
-        .filter(Boolean);
-
-    return `
-    WITH data AS (
-      SELECT
-        station_id,
-        (date AT TIME ZONE 'UTC' AT TIME ZONE $4)::date AS local_date,
-        temperature,
-        humidity,
-        pressure,
-        wind_speed,
-        wind_direction,
-        gust_speed,
-        gust_direction,
-        uvi,
-        lux,
-        rain
-      FROM weather_data
-      WHERE station_id = $1
-        AND date >= $2
-        AND date <= $3
-    )
-    SELECT
-      station_id,
-      local_date AS date,
-      ${selectedFields.join(",\n      ")}
-    FROM data
-    GROUP BY station_id, local_date
-    ORDER BY local_date`;
-}
 
 /**
  * Checks if a timezone has the same UTC offset as Madrid for all dates in range
