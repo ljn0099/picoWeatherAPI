@@ -350,6 +350,8 @@ router.get("/station-info", async (req, res) => {
  *                     type: number
  *                   gust_direction:
  *                     type: number
+ *                   standard_deviation_speed:
+ *                     type: number
  *                   lux:
  *                     type: integer
  *                   uvi:
@@ -462,6 +464,8 @@ router.get("/raw-data", validateFields("raw"), async (req, res) => {
  *                     type: number
  *                   max_gust_direction:
  *                     type: number
+ *                   standard_deviation_speed:
+ *                     type: number
  *                   avg_lux:
  *                     type: integer
  *                   avg_uvi:
@@ -568,6 +572,8 @@ router.get("/hourly-summary", validateFields("hourly"), async (req, res) => {
  *                   avg_wind_direction:
  *                     type: number
  *                   max_gust_direction:
+ *                     type: number
+ *                   standard_deviation_speed:
  *                     type: number
  *                   max_uvi:
  *                     type: number
@@ -722,7 +728,9 @@ router.get("/daily-summary", validateFields("daily"), async (req, res) => {
             // Create a base object with the date and station ID
             const baseObj = {
                 station_id: parseInt(station_id),
-                date: DateTime.fromJSDate(row.date, { setZone: true }).toISODate()
+                date: DateTime.fromJSDate(row.date, {
+                    setZone: true,
+                }).toISODate(),
             };
 
             // Add each field that was requested
