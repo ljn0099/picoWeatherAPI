@@ -5,12 +5,6 @@
 #include <stdbool.h>
 #include <stddef.h>
 
-#define DB_HOST "localhost"
-#define DB_PORT "5432"
-#define DB_NAME "weather"
-#define DB_USERNAME "weatherAPI"
-#define DB_PASSWORD "weatherAPI"
-
 #define USERNAME_SIZE 255
 #define EMAIL_SIZE 255
 #define TIMESTAMPTZ_SIZE 41

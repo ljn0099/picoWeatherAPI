@@ -48,10 +48,26 @@ const colMap_t apiKeyColumns[] = {
 };
 
 PGconn *init_db_conn() {
-    PGconn *conn = PQsetdbLogin(DB_HOST, DB_PORT,
+    const char *dbHost = getenv("DB_HOST");
+    const char *dbUser = getenv("DB_USER");
+    const char *dbPass = getenv("DB_PASS");
+    const char *dbName = getenv("DB_NAME");
+    const char *dbPort = getenv("DB_PORT");
+
+    if (!dbHost || !dbPort || !dbName || !dbUser || !dbPass) {
+        fprintf(stderr, "Error: mising requeried env vars.\n");
+        if (!dbHost) fprintf(stderr, "DB_HOST\n");
+        if (!dbPort) fprintf(stderr, "DB_PORT\n");
+        if (!dbName) fprintf(stderr, "DB_NAME\n");
+        if (!dbUser) fprintf(stderr, "DB_USER\n");
+        if (!dbPass) fprintf(stderr, "DB_PASS\n");
+        exit(EXIT_FAILURE);
+    }
+
+    PGconn *conn = PQsetdbLogin(dbHost, dbPort,
                                 NULL, // options
                                 NULL, // tty
-                                DB_NAME, DB_USERNAME, DB_PASSWORD);
+                                dbName, dbUser, dbPass);
 
     if (PQstatus(conn) != CONNECTION_OK) {
         fprintf(stderr, "Connection error: %s\n", PQerrorMessage(conn));

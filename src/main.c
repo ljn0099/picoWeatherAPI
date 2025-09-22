@@ -21,7 +21,14 @@ int main(void) {
         return EXIT_FAILURE;
     }
 
-    if (http_server_init(8080) != 0) {
+    const char *apiPortStr = getenv("API_PORT");
+    int apiPort;
+    if (apiPortStr)
+        apiPort = atoi(apiPortStr);
+    else
+        apiPort = 8080;
+
+    if (http_server_init(apiPort) != 0) {
         fprintf(stderr, "Failed to initialize HTTP server\n");
         weather_close_db();
         return EXIT_FAILURE;
