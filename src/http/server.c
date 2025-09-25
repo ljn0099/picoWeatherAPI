@@ -86,23 +86,24 @@ static enum MHD_Result handle_request(void *cls, struct MHD_Connection *connecti
         printf("DEBUG: Data: '%.*s'\n", (int)con_info->post_data_size, con_info->post_data);
     }
 
-    struct ResponseData response_data = {NULL, 0};
+    int httpStatus = MHD_HTTP_OK;
+    struct ResponseData response_data = {NULL, 0, &httpStatus};
     CURL *curl = curl_easy_init();
     struct MHD_Response *response;
     enum MHD_Result ret;
-    int http_status = MHD_HTTP_OK;
 
     if (strcmp(method, "GET") == 0) {
         if (strcmp(url, "/users") == 0) {
-            handle_list_users(curl, &response_data);
-            // handle_list_todos(curl, &response_data);
+            const char *sessionCookie = MHD_lookup_connection_value(connection, MHD_COOKIE_KIND, "sessionid");
+            handle_list_users(curl, sessionCookie, NULL, &response_data);
         }
-        // else if (strncmp(url, "/users/", 7) == 0) {
-            // int id = atoi(url + 7);
-            // handle_get_todo(curl, id, &response_data);
-        // }
+        else if (strncmp(url, "/users/", 7) == 0) {
+            const char *sessionCookie = MHD_lookup_connection_value(connection, MHD_COOKIE_KIND, "sessionid");
+            const char *userUUID = url + 7;
+            handle_list_users(curl, sessionCookie, userUUID, &response_data);
+        }
         else {
-            http_status = MHD_HTTP_NOT_FOUND;
+            httpStatus = MHD_HTTP_NOT_FOUND;
             response_data.data = strdup("{\"error\": \"Not found\"}");
             response_data.size = strlen(response_data.data);
         }
@@ -113,7 +114,7 @@ static enum MHD_Result handle_request(void *cls, struct MHD_Connection *connecti
     //         handle_create_todo(curl, con_info->post_data, con_info->post_data_size, &response_data);
     //     }
     //     else {
-    //         http_status = MHD_HTTP_NOT_FOUND;
+    //         httpStatus = MHD_HTTP_NOT_FOUND;
     //         response_data.data = strdup("{\"error\": \"Not found\"}");
     //         response_data.size = strlen(response_data.data);
     //     }
@@ -126,24 +127,25 @@ static enum MHD_Result handle_request(void *cls, struct MHD_Connection *connecti
     //                            &response_data);
     //     }
     //     else {
-    //         http_status = MHD_HTTP_NOT_FOUND;
+    //         httpStatus = MHD_HTTP_NOT_FOUND;
     //         response_data.data = strdup("{\"error\": \"Not found\"}");
     //         response_data.size = strlen(response_data.data);
     //     }
     // }
-    // else if (strcmp(method, "DELETE") == 0) {
-    //     if (strncmp(url, "/todos/", 7) == 0) {
-    //         int id = atoi(url + 7);
-    //         handle_delete_todo(curl, id, &response_data);
-    //     }
-    //     else {
-    //         http_status = MHD_HTTP_NOT_FOUND;
-    //         response_data.data = strdup("{\"error\": \"Not found\"}");
-    //         response_data.size = strlen(response_data.data);
-    //     }
-    // }
+    else if (strcmp(method, "DELETE") == 0) {
+        if (strncmp(url, "/users/", 7) == 0) {
+            const char *sessionCookie = MHD_lookup_connection_value(connection, MHD_COOKIE_KIND, "sessionid");
+            const char *userUUID = url + 7;
+            handle_delete_user(curl, sessionCookie, userUUID, &response_data);
+        }
+        else {
+            httpStatus = MHD_HTTP_NOT_FOUND;
+            response_data.data = strdup("{\"error\": \"Not found\"}");
+            response_data.size = strlen(response_data.data);
+        }
+    }
     else {
-        http_status = MHD_HTTP_METHOD_NOT_ALLOWED;
+        httpStatus = MHD_HTTP_METHOD_NOT_ALLOWED;
         response_data.data = strdup("{\"error\": \"Method not allowed\"}");
         response_data.size = strlen(response_data.data);
     }
@@ -157,7 +159,7 @@ static enum MHD_Result handle_request(void *cls, struct MHD_Connection *connecti
                                                MHD_RESPMEM_MUST_FREE);
     MHD_add_response_header(response, "Content-Type", "application/json");
 
-    ret = MHD_queue_response(connection, http_status, response);
+    ret = MHD_queue_response(connection, httpStatus, response);
     MHD_destroy_response(response);
     curl_easy_cleanup(curl);
 

@@ -1,14 +1,19 @@
 #ifndef HANDLERS_H
 #define HANDLERS_H
 
-#include <stddef.h>
 #include <curl/curl.h>
+#include <stddef.h>
 
 struct ResponseData {
-    char* data;
+    char *data;
     size_t size;
+    int *httpStatus;
 };
 
-void handle_list_users(CURL* curl, struct ResponseData* response);
+void handle_list_users(CURL *curl, const char *sessionCookie, const char *userId,
+                       struct ResponseData *response);
+
+void handle_delete_user(CURL *curl, const char *sessionCookie, const char *userId,
+                        struct ResponseData *response);
 
 #endif

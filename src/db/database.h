@@ -17,6 +17,7 @@
 
 #define INT_NULL -1
 #define FLOAT_NULL -9999.0f
+#define UUID_SIZE 37
 
 #define MAX_FIELDS 32
 
@@ -28,6 +29,7 @@
 
 typedef struct {
     int userId;
+    char userUUID[UUID_SIZE];
     char username[USERNAME_SIZE];
     char email[EMAIL_SIZE];
     char password[crypto_pwhash_STRBYTES * 2];
@@ -73,13 +75,14 @@ typedef struct {
 
 typedef enum {
     USER_FIELD_ID = 1 << 1,
-    USER_FIELD_USERNAME = 1 << 2,
-    USER_FIELD_EMAIL = 1 << 3,
-    USER_FIELD_PASSWORD = 1 << 4,
-    USER_FIELD_CREATED_AT = 1 << 5,
-    USER_FIELD_MAX_STATIONS = 1 << 6,
-    USER_FIELD_IS_ADMIN = 1 << 7,
-    USER_FIELD_DELETED_AT = 1 << 8
+    USER_FIELD_UUID = 1 << 2,
+    USER_FIELD_USERNAME = 1 << 3,
+    USER_FIELD_EMAIL = 1 << 4,
+    USER_FIELD_PASSWORD = 1 << 5,
+    USER_FIELD_CREATED_AT = 1 << 6,
+    USER_FIELD_MAX_STATIONS = 1 << 7,
+    USER_FIELD_IS_ADMIN = 1 << 8,
+    USER_FIELD_DELETED_AT = 1 << 9
 } userFieldFlags_t;
 
 typedef enum {
@@ -113,7 +116,8 @@ typedef enum {
     DB_QUERY_ERROR,
     DB_MEMORY_ERROR,
     DB_NO_ROWS,
-    DB_RESULT_PARSING_ERROR
+    DB_RESULT_PARSING_ERROR,
+    DB_AUTH_ERROR
 } dbError_t;
 
 extern const colMap_t userColumns[];

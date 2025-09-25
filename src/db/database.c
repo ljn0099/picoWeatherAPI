@@ -14,6 +14,7 @@
 
 const colMap_t userColumns[] = {
     COL(USER_FIELD_ID, "user_id", user_t, userId, COL_TYPE_INT),
+    COL(USER_FIELD_UUID, "uuid", user_t, userUUID, COL_TYPE_STRING),
     COL(USER_FIELD_USERNAME, "username", user_t, username, COL_TYPE_STRING),
     COL(USER_FIELD_EMAIL, "email", user_t, email, COL_TYPE_STRING),
     COL(USER_FIELD_PASSWORD, "password", user_t, password, COL_TYPE_STRING),
