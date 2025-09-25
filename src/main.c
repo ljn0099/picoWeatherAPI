@@ -34,7 +34,7 @@ int main(void) {
         return EXIT_FAILURE;
     }
 
-    printf("Todo REST API server running on port 8080...\n");
+    printf("Todo REST API server running on port %d...\n", apiPort);
 
     while (keep_running) {
         http_server_process();

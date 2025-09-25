@@ -8,7 +8,7 @@
 #define USERNAME_SIZE 255
 #define EMAIL_SIZE 255
 #define TIMESTAMPTZ_SIZE 41
-#define TEXT_SIZE 50
+#define TEXT_SIZE 255
 #define INT_SIZE 16
 #define FLOAT_SIZE 64
 #define INET_SIZE 42
@@ -32,7 +32,8 @@ typedef struct {
     char userUUID[UUID_SIZE];
     char username[USERNAME_SIZE];
     char email[EMAIL_SIZE];
-    char password[crypto_pwhash_STRBYTES * 2];
+    char plainPass[TEXT_SIZE];
+    char password[crypto_pwhash_STRBYTES];
     char createdAt[TIMESTAMPTZ_SIZE];
     int maxStations;
     bool isAdmin;
@@ -135,11 +136,11 @@ dbError_t find_session_by(PGconn *conn, int flags, session_t **outSessions, int 
 dbError_t find_api_key_by(PGconn *conn, int flags, apiKey_t **outApiKeys, int *apiKeysCount,
                           const char *where, const char *extra, const char **params, int nParams);
 
-dbError_t insert_user(PGconn *conn, int flags, user_t *user);
+dbError_t insert_user(PGconn *conn, int flags, const user_t *user);
 
-dbError_t insert_session(PGconn *conn, int flags, session_t *session);
+dbError_t insert_session(PGconn *conn, int flags, const session_t *session);
 
-dbError_t insert_api_key(PGconn *conn, int flags, apiKey_t *apiKey);
+dbError_t insert_api_key(PGconn *conn, int flags, const apiKey_t *apiKey);
 
 // Internal
 void append_column_names(char *query, size_t queryLen, int flags, const colMap_t *columns,

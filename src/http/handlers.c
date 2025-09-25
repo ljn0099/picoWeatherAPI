@@ -9,6 +9,16 @@
 
 PGconn *conn = NULL;
 
+static void json_copy_string(json_t *root, const char *key, char *dest, size_t destSize) {
+    const char *tmp = json_string_value(json_object_get(root, key));
+    if (tmp) {
+        strncpy(dest, tmp, destSize - 1);
+        dest[destSize - 1] = '\0';
+    } else {
+        dest[0] = '\0';
+    }
+}
+
 void fill_json_from_user(const user_t *user, json_t *json) {
     json_object_set_new(json, "uuid", json_string(user->userUUID));
     json_object_set_new(json, "username", json_string(user->username));
@@ -27,7 +37,7 @@ void handle_list_users(CURL *curl, const char *sessionCookie, const char *userId
     user_t *users = NULL;
     int count = 0;
 
-    if (users_list(&users, &count, sessionCookie, userId) == DB_OK) {
+    if (users_list(&users, &count, sessionCookie, userId, false) == DB_OK) {
         if (!userId) {
             json_t *root = json_array();
 
@@ -67,4 +77,61 @@ void handle_delete_user(CURL *curl, const char *sessionCookie, const char *userI
         response->data = strdup("{\"error\": \"Failed to delete user\"}");
         response->size = strlen(response->data);
     }
+}
+
+void handle_create_user(CURL *curl, const char *postData, size_t postSize, struct ResponseData *response) {
+    (void)curl;
+    if (postData) {
+        printf("DEBUG: postData = '%.*s'\n", (int)postSize, postData);
+    }
+
+    if (!postData || postSize <= 0) {
+        printf("DEBUG: No data received\n");
+        response->data = strdup("{\"error\": \"No data received\"}");
+        response->size = strlen(response->data);
+        return;
+    }
+
+    json_error_t error;
+    json_t* root = json_loadb(postData, postSize, 0, &error);
+
+    if (!root || !json_is_object(root)) {
+        printf("DEBUG: Invalid JSON data. Error: %s\n", error.text);
+        response->data = strdup("{\"error\": \"Invalid JSON data\"}");
+        response->size = strlen(response->data);
+        return;
+    }
+    
+    printf("DEBUG: Successfully parsed JSON\n");
+    user_t user;
+    json_copy_string(root, "username", user.username, sizeof(user.username));
+    json_copy_string(root, "email", user.email, sizeof(user.email));
+    json_copy_string(root, "password", user.plainPass, sizeof(user.plainPass));
+
+
+    // printf("DEBUG: username = %s, email = %s, password = %s\n", 
+    //        user.username, 
+    //        user.email,
+    //        user.password);
+
+    user_t userResponse;
+    if (user.username[0] != '\0' && user.email[0] != '\0' && user.plainPass[0] != '\0') {
+        if (user_create(&user, &userResponse) == DB_OK) {
+            json_t *userJSON = json_object();
+            fill_json_from_user(&userResponse, userJSON);
+            response->data = json_dumps(userJSON, JSON_INDENT(2));
+
+            json_decref(userJSON);
+            printf("DEBUG: User created successfully\n");
+        } else {
+            printf("DEBUG: Failed to create user\n");
+            response->data = strdup("{\"error\": \"Failed to create user\"}");
+        }
+    } else {
+        printf("DEBUG: Invalid request data\n");
+        response->data = strdup("{\"error\": \"Invalid request data\"}");
+    }
+
+    json_decref(root);
+    response->size = strlen(response->data);
 }

@@ -1,6 +1,7 @@
 #include "../db/database.h"
 #include "weather.h"
 #include <libpq-fe.h>
+#include <sodium.h>
 #include <regex.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -32,10 +33,10 @@ dbError_t weather_init_db() {
     return DB_OK;
 }
 
-dbError_t users_list(user_t *users[], int *userCount, const char *sessionCookie,
-                     const char *userId) {
+dbError_t users_list(user_t *users[], int *userCount, const char *sessionCookie, const char *userId,
+                     bool nocheck) {
 
-    if (!validate_cookie(sessionCookie, userId))
+    if (!validate_cookie(sessionCookie, userId) && nocheck == false)
         return DB_AUTH_ERROR;
 
     int flags = USER_FIELD_UUID | USER_FIELD_EMAIL | USER_FIELD_USERNAME | USER_FIELD_IS_ADMIN |
@@ -57,19 +58,46 @@ dbError_t users_list(user_t *users[], int *userCount, const char *sessionCookie,
     }
 }
 
+dbError_t user_create(user_t *user, user_t *userResponse) {
+    int insert_fields = USER_FIELD_USERNAME | USER_FIELD_EMAIL | USER_FIELD_PASSWORD;
+
+    if (crypto_pwhash_str(user->password, user->plainPass, strlen(user->plainPass),
+                          crypto_pwhash_OPSLIMIT_MODERATE,
+                          crypto_pwhash_MEMLIMIT_MODERATE) != 0) {
+        return DB_MEMORY_ERROR;
+    }
+    memset(user->plainPass, 0, sizeof(user->plainPass));
+
+    if (insert_user(conn, insert_fields, user) != DB_OK) {
+        fprintf(stderr, "Error inserting a new user\n");
+        return DB_QUERY_ERROR;
+    }
+
+    user_t *usersResponse = NULL;
+    int userCount;
+    if (users_list(&usersResponse, &userCount, NULL, user->username, true) != DB_OK) {
+        return DB_QUERY_ERROR;
+    }
+    *userResponse = usersResponse[0];
+
+    free(usersResponse);
+
+    return DB_OK;
+}
+
 dbError_t user_delete(const char *sessionCookie, const char *userId) {
     if (!validate_cookie(sessionCookie, userId))
         return DB_AUTH_ERROR;
 
     const char *paramValues[1] = {userId};
 
-    PGresult *res =
-        PQexecParams(conn,
-                     "UPDATE auth.users "
-                     " SET deleted_at = now() "
-                     " WHERE uuid::text = $1 OR username = $1;",
-                     1, // number of parameters
-                     NULL, paramValues, NULL, NULL, 0);
+    PGresult *res = PQexecParams(conn,
+                                 "UPDATE auth.users "
+                                 " SET deleted_at = now() "
+                                 " WHERE (uuid::text = $1 OR username = $1) "
+                                 " AND deleted_at IS NULL;",
+                                 1, // number of parameters
+                                 NULL, paramValues, NULL, NULL, 0);
 
     if (PQresultStatus(res) != PGRES_COMMAND_OK) {
         fprintf(stderr, "Error executing the query: %s", PQerrorMessage(conn));

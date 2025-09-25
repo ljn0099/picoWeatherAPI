@@ -371,16 +371,16 @@ dbError_t find_api_key_by(PGconn *conn, int flags, apiKey_t **outApiKeys, int *a
                  params, nParams);
 }
 
-dbError_t insert_user(PGconn *conn, int flags, user_t *user) {
+dbError_t insert_user(PGconn *conn, int flags, const user_t *user) {
     return insert_record(conn, flags, "auth.users", userColumns, ARRAY_LEN(userColumns), user);
 }
 
-dbError_t insert_session(PGconn *conn, int flags, session_t *session) {
+dbError_t insert_session(PGconn *conn, int flags, const session_t *session) {
     return insert_record(conn, flags, "auth.user_sessions", sessionColumns,
                          ARRAY_LEN(sessionColumns), session);
 }
 
-dbError_t insert_api_key(PGconn *conn, int flags, apiKey_t *apiKey) {
+dbError_t insert_api_key(PGconn *conn, int flags, const apiKey_t *apiKey) {
     return insert_record(conn, flags, "auth.api_keys", apiKeyColumns, ARRAY_LEN(apiKeyColumns),
                          apiKey);
 }

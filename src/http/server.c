@@ -108,17 +108,17 @@ static enum MHD_Result handle_request(void *cls, struct MHD_Connection *connecti
             response_data.size = strlen(response_data.data);
         }
     }
-    // else if (strcmp(method, "POST") == 0) {
-    //     if (strcmp(url, "/todos") == 0) {
-    //         printf("DEBUG: Calling handle_create_todo with %zu bytes\n", con_info->post_data_size);
-    //         handle_create_todo(curl, con_info->post_data, con_info->post_data_size, &response_data);
-    //     }
-    //     else {
-    //         httpStatus = MHD_HTTP_NOT_FOUND;
-    //         response_data.data = strdup("{\"error\": \"Not found\"}");
-    //         response_data.size = strlen(response_data.data);
-    //     }
-    // }
+    else if (strcmp(method, "POST") == 0) {
+        if (strcmp(url, "/users") == 0) {
+            printf("DEBUG: Calling handle_create_todo with %zu bytes\n", con_info->post_data_size);
+            handle_create_user(curl, con_info->post_data, con_info->post_data_size, &response_data);
+        }
+        else {
+            httpStatus = MHD_HTTP_NOT_FOUND;
+            response_data.data = strdup("{\"error\": \"Not found\"}");
+            response_data.size = strlen(response_data.data);
+        }
+    }
     // else if (strcmp(method, "PUT") == 0) {
     //     if (strncmp(url, "/todos/", 7) == 0) {
     //         int id = atoi(url + 7);
@@ -158,6 +158,7 @@ static enum MHD_Result handle_request(void *cls, struct MHD_Connection *connecti
     response = MHD_create_response_from_buffer(response_data.size, response_data.data,
                                                MHD_RESPMEM_MUST_FREE);
     MHD_add_response_header(response, "Content-Type", "application/json");
+    MHD_add_response_header(response, "Access-Control-Allow-Origin", "*");
 
     ret = MHD_queue_response(connection, httpStatus, response);
     MHD_destroy_response(response);
