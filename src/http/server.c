@@ -158,7 +158,6 @@ static enum MHD_Result handle_request(void *cls, struct MHD_Connection *connecti
     response = MHD_create_response_from_buffer(response_data.size, response_data.data,
                                                MHD_RESPMEM_MUST_FREE);
     MHD_add_response_header(response, "Content-Type", "application/json");
-    MHD_add_response_header(response, "Access-Control-Allow-Origin", "*");
 
     ret = MHD_queue_response(connection, httpStatus, response);
     MHD_destroy_response(response);
