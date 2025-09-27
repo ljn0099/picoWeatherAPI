@@ -1,5 +1,5 @@
 # Stage 1: build
-FROM docker.io/library/alpine:latest AS builder
+FROM docker.io/library/alpine:3.22 AS builder
 
 RUN apk add --no-cache \
     build-base \
@@ -18,7 +18,7 @@ COPY CMakeLists.txt .
 RUN mkdir -p build && cd build && cmake .. && make -j$(nproc)
 
 # Stage 2: runtime
-FROM docker.io/library/alpine:latest
+FROM docker.io/library/alpine:3.22
 
 RUN apk add --no-cache \
     libpq \
