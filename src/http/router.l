@@ -1,0 +1,115 @@
+%{
+#include <stdio.h>
+#include <string.h>
+#include "../utils/utils.h"
+#include "server.h"
+#include "handlers.h"
+
+#define USERS_PREFIX_LEN (sizeof("/users/") - 1)
+#define SESSIONS_PREFIX_LEN (sizeof("/sessions/") - 1)
+
+%}
+
+%option noinput
+%option nounput
+%option noyywrap
+%option reentrant
+%option extra-type="struct HandlerContext*"
+
+%%
+
+"/users" {
+    handle_user(yyget_extra(yyscanner), NULL);
+}
+
+"/users/"[^/]+ {
+    char *userId = yytext + USERS_PREFIX_LEN;
+
+    // Validation
+    if (!validate_name(userId) && !validate_uuid(userId)) {
+        printf("Invalid userId: %s\n", userId);
+        return 0;
+    }
+
+    handle_user(yyget_extra(yyscanner), userId);
+}
+
+"/users/"[^/]+"/api-keys" {
+    char *start = yytext + USERS_PREFIX_LEN;  // after '/users/'
+    char *slash = strchr(start, '/');  // find the '/'
+    *slash = '\0';
+
+    char *userId = start;
+    // Validation
+    if (!validate_name(userId) && !validate_uuid(userId)) {
+        printf("Invalid userId: %s\n", userId);
+        return 0;
+    }
+
+    handle_api_key(yyget_extra(yyscanner), userId, NULL);
+}
+
+"/users/"[^/]+"/api-keys/"[^/]+ {
+    char *start = yytext + USERS_PREFIX_LEN;  // after '/users/'
+    char *slash = strchr(start, '/');  // find the '/'
+    if (slash)
+        *slash = '\0';
+
+    char *userId = start;
+    char *uuid = slash + SESSIONS_PREFIX_LEN; // after "/sessions/"
+
+    // Validation
+    if (!validate_name(userId) && !validate_uuid(userId)) {
+        printf("Invalid name: %s\n", userId);
+        return 0;
+    }
+
+    if (!validate_uuid(uuid)) {
+        printf("Invalid UUID: %s\n", uuid);
+        return 0;
+    }
+
+    handle_api_key(yyget_extra(yyscanner), userId, uuid);
+}
+
+"/users/"[^/]+"/sessions" {
+    char *start = yytext + USERS_PREFIX_LEN;  // after '/users/'
+    char *slash = strchr(start, '/');  // find the '/'
+    *slash = '\0';
+
+    char *userId = start;
+    // Validation
+    if (!validate_name(userId) && !validate_uuid(userId)) {
+        printf("Invalid userId: %s\n", userId);
+        return 0;
+    }
+
+    handle_user_session(yyget_extra(yyscanner), userId, NULL);
+}
+
+"/users/"[^/]+"/sessions/"[^/]+ {
+    char *start = yytext + USERS_PREFIX_LEN;  // after '/users/'
+    char *slash = strchr(start, '/');  // find the '/'
+    if (slash)
+        *slash = '\0';
+
+    char *userId = start;
+    char *uuid = slash + SESSIONS_PREFIX_LEN; // after "/sessions/"
+
+    // Validation
+    if (!validate_name(userId) && !validate_uuid(userId)) {
+        printf("Invalid name: %s\n", userId);
+        return 0;
+    }
+
+    if (!validate_uuid(uuid)) {
+        printf("Invalid UUID: %s\n", uuid);
+        return 0;
+    }
+
+    handle_user_session(yyget_extra(yyscanner), userId, uuid);
+}
+
+.|\n    { /* Ignore other */ }
+
+%%
