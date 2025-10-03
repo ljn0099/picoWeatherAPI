@@ -2,8 +2,6 @@
 #define WEATHER_H
 
 #include <jansson.h>
-#include <libpq-fe.h>
-#include <stdbool.h>
 
 typedef enum {
     API_OK = 0,
@@ -14,15 +12,6 @@ typedef enum {
     API_FORBIDDEN,
     API_JSON_ERROR
 } apiError_t;
-
-bool init_db_vars();
-
-PGconn *init_db_conn();
-
-void close_db_conn();
-
-bool init_pool();
-void free_pool();
 
 apiError_t users_list(const char *userId, const char *sessionToken, json_t **users);
 #endif

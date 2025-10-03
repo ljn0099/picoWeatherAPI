@@ -3,7 +3,7 @@
 #include <sodium.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "core/weather.h"
+#include "database/database.h"
 
 static volatile int keepRuning = 1;
 
