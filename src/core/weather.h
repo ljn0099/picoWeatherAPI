@@ -21,5 +21,8 @@ PGconn *init_db_conn();
 
 void close_db_conn();
 
+bool init_pool();
+void free_pool();
+
 apiError_t users_list(const char *userId, const char *sessionToken, json_t **users);
 #endif

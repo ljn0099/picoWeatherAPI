@@ -26,6 +26,11 @@ int main(void) {
         return EXIT_FAILURE;
     }
 
+    if(!init_pool()) {
+        fprintf(stderr, "Failed to initialize db\n");
+        return EXIT_FAILURE;
+    }
+
     const char *apiPortStr = getenv("API_PORT");
     int apiPort;
     if (apiPortStr)
@@ -46,6 +51,7 @@ int main(void) {
     }
 
     http_server_cleanup();
+    free_pool();
     printf("\nServer shutdown complete\n");
 
     return EXIT_SUCCESS;
