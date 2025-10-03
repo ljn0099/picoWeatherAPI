@@ -11,4 +11,6 @@ void handle_user(struct HandlerContext *handlerContext, const char *userId);
 void handle_api_key(struct HandlerContext *handlerContext, const char *userId,
                     const char *apiKeyUUID);
 
+void handle_users_list(struct HandlerContext *handlerContext, const char *userId);
+
 #endif

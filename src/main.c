@@ -21,8 +21,8 @@ int main(void) {
         return EXIT_FAILURE;
     }
 
-    if (!init_db_conn()) {
-        fprintf(stderr, "Failed to initialize database\n");
+    if (!init_db_vars()) {
+        fprintf(stderr, "Failed to initialize db env vars\n");
         return EXIT_FAILURE;
     }
 
@@ -46,7 +46,6 @@ int main(void) {
     }
 
     http_server_cleanup();
-    close_db_conn();
     printf("\nServer shutdown complete\n");
 
     return EXIT_SUCCESS;

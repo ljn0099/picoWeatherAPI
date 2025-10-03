@@ -1,120 +1,100 @@
+#include "../utils/utils.h"
 #include <jansson.h>
 #include <libpq-fe.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdbool.h>
 
-static PGconn *conn = NULL;
+const char *DB_HOST;
+const char *DB_USER;
+const char *DB_PASS;
+const char *DB_NAME;
+const char *DB_PORT;
 
-bool init_db_conn() {
-    const char *dbHost = getenv("DB_HOST");
-    const char *dbUser = getenv("DB_USER");
-    const char *dbPass = getenv("DB_PASS");
-    const char *dbName = getenv("DB_NAME");
-    const char *dbPort = getenv("DB_PORT");
+bool init_db_vars() {
+    DB_HOST = getenv("DB_HOST");
+    DB_USER = getenv("DB_USER");
+    DB_PASS = getenv("DB_PASS");
+    DB_NAME = getenv("DB_NAME");
+    DB_PORT = getenv("DB_PORT");
 
-    if (!dbHost || !dbPort || !dbName || !dbUser || !dbPass) {
+    if (!DB_HOST || !DB_PORT || !DB_NAME || !DB_USER || !DB_PASS) {
         fprintf(stderr, "Error: mising requeried env vars.\n");
-        if (!dbHost)
+        if (!DB_HOST)
             fprintf(stderr, "DB_HOST\n");
-        if (!dbPort)
+        if (!DB_PORT)
             fprintf(stderr, "DB_PORT\n");
-        if (!dbName)
+        if (!DB_NAME)
             fprintf(stderr, "DB_NAME\n");
-        if (!dbUser)
+        if (!DB_USER)
             fprintf(stderr, "DB_USER\n");
-        if (!dbPass)
+        if (!DB_PASS)
             fprintf(stderr, "DB_PASS\n");
         return false;
     }
+    return true;
+}
 
-    conn = PQsetdbLogin(dbHost, dbPort,
-                                NULL, // options
-                                NULL, // tty
-                                dbName, dbUser, dbPass);
+PGconn *init_db_conn() {
+
+    PGconn *conn;
+    conn = PQsetdbLogin(DB_HOST, DB_PORT,
+                         NULL, // options
+                         NULL, // tty
+                         DB_NAME, DB_USER, DB_PASS);
 
     if (PQstatus(conn) != CONNECTION_OK) {
         fprintf(stderr, "Connection error: %s\n", PQerrorMessage(conn));
         PQfinish(conn);
-        return false;
+        return NULL;
     }
 
-    return true;
+    return conn;
 }
 
-void close_db_conn() {
+void close_db_conn(PGconn *conn) {
     PQfinish(conn);
 }
 
-json_t* pgresult_to_json(PGresult *res) {
-    if (!res || PQresultStatus(res) != PGRES_TUPLES_OK) return NULL;
+bool users_list(const char *userId, const char *sessionToken, json_t **users) {
+    if (!sessionToken || !users)
+        return false;
 
-    int nRows = PQntuples(res);
-    int nFields = PQnfields(res);
+    PGconn *conn = init_db_conn();
+    if (!conn)
+        return false;
 
-    json_t *jsonArray = json_array();
-    if (!jsonArray) return NULL;
-
-    for (int i = 0; i < nRows; i++) {
-        json_t *jsonObj = json_object();
-        if (!jsonObj) {
-            json_decref(jsonArray);
-            return NULL;
-        }
-
-        for (int j = 0; j < nFields; j++) {
-            const char *colName = PQfname(res, j);
-            char *value = PQgetvalue(res, i, j);
-
-            if (PQgetisnull(res, i, j)) {
-                if (json_object_set_new(jsonObj, colName, json_null()) != 0) {
-                    json_decref(jsonObj);
-                    json_decref(jsonArray);
-                    return NULL;
-                }
-            } else {
-                Oid colType = PQftype(res, j);
-                json_t *jsonVal = NULL;
-
-                switch(colType) {
-                    case 16: { // BOOL
-                        bool boolVal = (strcmp(value, "t") == 0);
-                        jsonVal = json_boolean(boolVal);
-                        break;
-                    }
-                    case 20: // INT8
-                    case 21: // INT2
-                    case 23: { // INT4
-                        long long intVal = atoll(value);
-                        jsonVal = json_integer(intVal);
-                        break;
-                    }
-                    case 700: // FLOAT4
-                    case 701: { // FLOAT8
-                        double floatVal = atof(value);
-                        jsonVal = json_real(floatVal);
-                        break;
-                    }
-                    default:
-                        jsonVal = json_string(value);
-                        break;
-                }
-
-                if (!jsonVal || json_object_set_new(jsonObj, colName, jsonVal) != 0) {
-                    if (jsonVal) json_decref(jsonVal);
-                    json_decref(jsonObj);
-                    json_decref(jsonArray);
-                    return NULL;
-                }
-            }
-        }
-
-        if (json_array_append_new(jsonArray, jsonObj) != 0) {
-            json_decref(jsonObj);
-            json_decref(jsonArray);
-            return NULL;
-        }
+    if (!validate_session_token(conn, userId, sessionToken)) {
+        close_db_conn(conn);
+        return false;
     }
 
-    return jsonArray;
+    const char *paramValues[1] = {userId};
+
+    PGresult *res = PQexecParams(conn,
+            "SELECT uuid, username, email, created_at, max_stations, is_admin FROM auth.users "
+            "WHERE deleted_at IS NULL "
+            "AND ($1::text IS NULL OR uuid::text = $1::text OR username = $1::text);",
+            1,
+            NULL, paramValues, NULL, NULL, 0);
+
+    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        fprintf(stderr, "Error executing the query: %s", PQerrorMessage(conn));
+        PQclear(res);
+        close_db_conn(conn);
+        return false;
+    }
+
+    *users = pgresult_to_json(res);
+    if (!*users) {
+        PQclear(res);
+        close_db_conn(conn);
+        return false;
+    }
+
+    PQclear(res);
+
+    close_db_conn(conn);
+
+    return true;
 }

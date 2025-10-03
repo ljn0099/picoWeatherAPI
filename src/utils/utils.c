@@ -1,7 +1,10 @@
-#include <ctype.h>
-#include <string.h>
-#include <stdbool.h>
 #include "utils.h"
+#include <ctype.h>
+#include <jansson.h>
+#include <libpq-fe.h>
+#include <sodium.h>
+#include <stdbool.h>
+#include <string.h>
 
 bool validate_name(const char *str) {
     int len = 0;
@@ -47,4 +50,189 @@ bool validate_uuid(const char *uuid) {
 
     // The last character should be the end of the string
     return uuid[36] == '\0';
+}
+
+bool validate_password(PGconn *conn, const char *userId, const char *password) {
+    if (!password || !userId)
+        return false;
+
+    const char *paramValues[1] = {userId};
+
+    PGresult *res = PQexecParams(conn,
+                                 "SELECT password "
+                                 " FROM auth.users "
+                                 " WHERE uuid::text = $1"
+                                 " OR username = $1",
+                                 1, NULL, paramValues, NULL, NULL, 0);
+
+    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        fprintf(stderr, "Error executing the query: %s", PQerrorMessage(conn));
+        PQclear(res);
+        return false;
+    }
+
+    if (PQntuples(res) != 1) {
+        PQclear(res);
+        return false;
+    }
+
+    const char *passHash = PQgetvalue(res, 0, 0);
+    if (crypto_pwhash_str_verify(passHash, password, strlen(password)) != 0) {
+        PQclear(res);
+        return false;
+    }
+
+    PQclear(res);
+    return true;
+}
+
+bool validate_session_token(PGconn *conn, const char *userId, const char *sessionToken) {
+    if (!sessionToken)
+        return false;
+
+    unsigned char recievedToken[KEY_ENTROPY];
+    if (sodium_base642bin(recievedToken, sizeof(recievedToken), sessionToken, strlen(sessionToken),
+                          NULL, NULL, NULL, BASE64_VARIANT) != 0) {
+        return false;
+    }
+
+    unsigned char recievedTokenHash[crypto_generichash_BYTES];
+    crypto_generichash(recievedTokenHash, sizeof(recievedTokenHash), recievedToken,
+                       sizeof(recievedToken), NULL, 0);
+
+    // Convert the hash into base64 for the query
+    char recievedTokenHashB64[sodium_base64_ENCODED_LEN((sizeof(recievedTokenHash)),
+                                                        BASE64_VARIANT)];
+    sodium_bin2base64(recievedTokenHashB64, sizeof(recievedTokenHashB64), recievedTokenHash,
+                      (sizeof(recievedTokenHash)), BASE64_VARIANT);
+
+    PGresult *res;
+
+    const char *paramValues[2] = {recievedTokenHashB64, userId};
+
+    res = PQexecParams(conn,
+                       "SELECT 1 "
+                       "FROM auth.user_sessions s "
+                       "JOIN auth.users u ON s.user_id = u.user_id "
+                       "WHERE s.session_token = $1 "
+                       "  AND s.expires_at > NOW() "
+                       "  AND s.revoked_at IS NULL "
+                       "  AND u.deleted_at IS NULL "
+                       "  AND ( "
+                       "        ($2::text IS NULL AND u.is_admin = true) "
+                       "        OR ($2::text IS NOT NULL AND ( "
+                       "              u.is_admin = true "
+                       "              OR u.uuid::text = $2::text "
+                       "              OR u.username = $2::text "
+                       "        )) "
+                       "      )",
+                       2,           // number of parameters
+                       NULL,        // param types
+                       paramValues, // param values
+                       NULL,        // param lengths
+                       NULL,        // param formats
+                       0);          // result format (0 = text)
+
+    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        fprintf(stderr, "Error executing the query: %s", PQerrorMessage(conn));
+        PQclear(res);
+        return false;
+    }
+
+    if (PQntuples(res) > 0) {
+        PQclear(res);
+        return true;
+    }
+    else {
+        PQclear(res);
+        return false;
+    }
+}
+
+json_t *pgresult_to_json(PGresult *res) {
+    if (!res || PQresultStatus(res) != PGRES_TUPLES_OK)
+        return NULL;
+
+    int nRows = PQntuples(res);
+    int nFields = PQnfields(res);
+
+    if (nRows == 0)
+        return json_array(); // O json_null(), según prefieras
+
+    json_t *jsonArray = json_array();
+    if (!jsonArray)
+        return NULL;
+
+    for (int i = 0; i < nRows; i++) {
+        json_t *jsonObj = json_object();
+        if (!jsonObj) {
+            json_decref(jsonArray);
+            return NULL;
+        }
+
+        for (int j = 0; j < nFields; j++) {
+            const char *colName = PQfname(res, j);
+            char *value = PQgetvalue(res, i, j);
+
+            if (PQgetisnull(res, i, j)) {
+                if (json_object_set_new(jsonObj, colName, json_null()) != 0) {
+                    json_decref(jsonObj);
+                    json_decref(jsonArray);
+                    return NULL;
+                }
+            }
+            else {
+                Oid colType = PQftype(res, j);
+                json_t *jsonVal = NULL;
+
+                switch (colType) {
+                    case 16: { // BOOL
+                        bool boolVal = (strcmp(value, "t") == 0);
+                        jsonVal = json_boolean(boolVal);
+                        break;
+                    }
+                    case 20:
+                    case 21:
+                    case 23: { // INT8, INT2, INT4
+                        long long intVal = atoll(value);
+                        jsonVal = json_integer(intVal);
+                        break;
+                    }
+                    case 700:
+                    case 701: { // FLOAT4, FLOAT8
+                        double floatVal = atof(value);
+                        jsonVal = json_real(floatVal);
+                        break;
+                    }
+                    default:
+                        jsonVal = json_string(value);
+                        break;
+                }
+
+                if (!jsonVal || json_object_set_new(jsonObj, colName, jsonVal) != 0) {
+                    if (jsonVal)
+                        json_decref(jsonVal);
+                    json_decref(jsonObj);
+                    json_decref(jsonArray);
+                    return NULL;
+                }
+            }
+        }
+
+        if (json_array_append_new(jsonArray, jsonObj) != 0) {
+            json_decref(jsonObj);
+            json_decref(jsonArray);
+            return NULL;
+        }
+    }
+
+    // Si solo hay un objeto, devolverlo directamente
+    if (nRows == 1) {
+        json_t *singleObj = json_array_get(jsonArray, 0);
+        json_incref(singleObj); // Incrementamos referencia antes de liberar el array
+        json_decref(jsonArray);
+        return singleObj;
+    }
+
+    return jsonArray;
 }

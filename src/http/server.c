@@ -179,6 +179,7 @@ static enum MHD_Result handle_request(void *cls, struct MHD_Connection *connecti
     // Free resources
     yy_delete_buffer(flexBuffer, scanner);
     yylex_destroy(scanner);
+    // ---------------------------------
 
     // Response handling
     struct MHD_Response *response;
