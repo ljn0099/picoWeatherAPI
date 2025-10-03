@@ -142,7 +142,7 @@ static enum MHD_Result handle_request(void *cls, struct MHD_Connection *connecti
     // Response data initialization
     struct ResponseData responseData;
     responseData.data = NULL;
-    responseData.httpStatus = MHD_HTTP_OK;
+    responseData.httpStatus = MHD_HTTP_NOT_FOUND;
     responseData.sessionToken = NULL;
     responseData.sessionTokenMaxAge = 3600;
 
