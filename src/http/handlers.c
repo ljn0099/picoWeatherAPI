@@ -11,8 +11,6 @@
 
 int apiError_to_http(apiError_t err, char **data) {
     switch (err) {
-        case API_OK:
-            return MHD_HTTP_OK;
         case API_INVALID_PARAMS:
             *data = strdup("{\"error\":\"Invalid parameters\"}");
             return MHD_HTTP_BAD_REQUEST;
@@ -41,20 +39,30 @@ int apiError_to_http(apiError_t err, char **data) {
 }
 
 void handle_user(struct HandlerContext *handlerContext, const char *userId) {
-    if (strcmp(handlerContext->method, "GET") == 0)
+    if (strcmp(handlerContext->method, "GET") == 0) {
+        handlerContext->responseData->httpStatus = MHD_HTTP_OK;
         handle_users_list(handlerContext, userId);
-    else if (strcmp(handlerContext->method, "POST") == 0)
+    }
+    else if (strcmp(handlerContext->method, "POST") == 0) {
+        handlerContext->responseData->httpStatus = MHD_HTTP_CREATED;
         handle_users_create(handlerContext);
-    else if (strcmp(handlerContext->method, "DELETE") == 0)
+    }
+    else if (strcmp(handlerContext->method, "DELETE") == 0) {
+        handlerContext->responseData->httpStatus = MHD_HTTP_NO_CONTENT;
         handle_users_delete(handlerContext, userId);
+    }
 }
 
 void handle_sessions(struct HandlerContext *handlerContext, const char *userId,
                      const char *sessionUUID) {
-    if (strcmp(handlerContext->method, "GET") == 0)
+    if (strcmp(handlerContext->method, "GET") == 0) {
+        handlerContext->responseData->httpStatus = MHD_HTTP_OK;
         handle_sessions_list(handlerContext, userId, sessionUUID);
-    else if (strcmp(handlerContext->method, "POST") == 0)
+    }
+    else if (strcmp(handlerContext->method, "POST") == 0) {
+        handlerContext->responseData->httpStatus = MHD_HTTP_CREATED;
         handle_sessions_create(handlerContext, userId);
+    }
 }
 
 void handle_api_key(struct HandlerContext *handlerContext, const char *userId,
@@ -67,9 +75,9 @@ void handle_users_list(struct HandlerContext *handlerContext, const char *userId
     json_t *json = NULL;
     apiError_t code = users_list(userId, handlerContext->authData, &json);
 
-    handlerContext->responseData->httpStatus =
-        apiError_to_http(code, &handlerContext->responseData->data);
     if (code != API_OK) {
+        handlerContext->responseData->httpStatus =
+            apiError_to_http(code, &handlerContext->responseData->data);
         return;
     }
 
@@ -106,12 +114,12 @@ void handle_users_create(struct HandlerContext *handlerContext) {
 
     errorCode = users_create(username, email, password, &json);
 
-    handlerContext->responseData->httpStatus =
-        apiError_to_http(errorCode, &handlerContext->responseData->data);
 
     json_decref(root);
 
     if (errorCode != API_OK) {
+        handlerContext->responseData->httpStatus =
+            apiError_to_http(errorCode, &handlerContext->responseData->data);
         return;
     }
     handlerContext->responseData->data = json_dumps(json, JSON_INDENT(2));
@@ -121,9 +129,9 @@ void handle_users_create(struct HandlerContext *handlerContext) {
 void handle_users_delete(struct HandlerContext *handlerContext, const char *userId) {
     apiError_t code = users_delete(userId, handlerContext->authData);
 
-    handlerContext->responseData->httpStatus =
-        apiError_to_http(code, &handlerContext->responseData->data);
     if (code != API_OK) {
+        handlerContext->responseData->httpStatus =
+            apiError_to_http(code, &handlerContext->responseData->data);
         return;
     }
 }
@@ -159,13 +167,11 @@ void handle_sessions_create(struct HandlerContext *handlerContext, const char *u
 
     handlerContext->responseData->sessionTokenMaxAge = DEFAULT_SESSION_AGE;
 
-
-    handlerContext->responseData->httpStatus =
-        apiError_to_http(errorCode, &handlerContext->responseData->data);
-
     json_decref(root);
 
     if (errorCode != API_OK) {
+        handlerContext->responseData->httpStatus =
+            apiError_to_http(errorCode, &handlerContext->responseData->data);
         return;
     }
 
@@ -178,9 +184,9 @@ void handle_sessions_list(struct HandlerContext *handlerContext, const char *use
     json_t *json = NULL;
     apiError_t code = sessions_list(userId, sessionUUID, handlerContext->authData, &json);
 
-    handlerContext->responseData->httpStatus =
-        apiError_to_http(code, &handlerContext->responseData->data);
     if (code != API_OK) {
+        handlerContext->responseData->httpStatus =
+            apiError_to_http(code, &handlerContext->responseData->data);
         return;
     }
 
