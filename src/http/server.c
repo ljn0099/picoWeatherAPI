@@ -1,7 +1,7 @@
+#include "../utils/utils.h"
 #include "handlers.h"
 #include "router.h"
 #include "server.h"
-#include "../utils/utils.h"
 #include <arpa/inet.h>
 #include <microhttpd.h>
 #include <stdbool.h>
@@ -150,6 +150,7 @@ static enum MHD_Result handle_request(void *cls, struct MHD_Connection *connecti
     handlerContext.method = method;
     handlerContext.responseData = &responseData;
     handlerContext.authData = &authData;
+    handlerContext.requestData = requestData;
 
     // Init scanner with the extra context
     yyscan_t scanner;
@@ -203,10 +204,9 @@ static enum MHD_Result handle_request(void *cls, struct MHD_Connection *connecti
 }
 
 int http_server_init(int port, int nThreads) {
-    httpDaemon = MHD_start_daemon(
-        MHD_USE_EPOLL_INTERNALLY | MHD_USE_IPv6 | MHD_USE_DUAL_STACK, port,
-        NULL, NULL, &handle_request, NULL, MHD_OPTION_THREAD_POOL_SIZE, nThreads,
-        MHD_OPTION_END);
+    httpDaemon = MHD_start_daemon(MHD_USE_EPOLL_INTERNALLY | MHD_USE_IPv6 | MHD_USE_DUAL_STACK,
+                                  port, NULL, NULL, &handle_request, NULL,
+                                  MHD_OPTION_THREAD_POOL_SIZE, nThreads, MHD_OPTION_END);
 
     if (httpDaemon)
         return 0;

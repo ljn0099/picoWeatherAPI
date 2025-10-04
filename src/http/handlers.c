@@ -42,18 +42,19 @@ void handle_user(struct HandlerContext *handlerContext, const char *userId) {
     if (strcmp(handlerContext->method, "GET") == 0)
         handle_users_list(handlerContext, userId);
     else if (strcmp(handlerContext->method, "POST") == 0)
-        handle_users_list(handlerContext, userId);
+        handle_users_create(handlerContext);
 }
 
 void handle_user_session(struct HandlerContext *handlerContext, const char *userId,
                          const char *sessionUUID) {
     DEBUG_PRINTF("User ID: %s, sessionUUID: %s, method: %s\n", userId, sessionUUID,
-           handlerContext->method);
+                 handlerContext->method);
 }
 
 void handle_api_key(struct HandlerContext *handlerContext, const char *userId,
                     const char *apiKeyUUID) {
-    DEBUG_PRINTF("UserId: %s, apiKeyUUID: %s, method: %s\n", userId, apiKeyUUID, handlerContext->method);
+    DEBUG_PRINTF("UserId: %s, apiKeyUUID: %s, method: %s\n", userId, apiKeyUUID,
+                 handlerContext->method);
 }
 
 void handle_users_list(struct HandlerContext *handlerContext, const char *userId) {
@@ -68,5 +69,45 @@ void handle_users_list(struct HandlerContext *handlerContext, const char *userId
 
     handlerContext->responseData->data = json_dumps(json, JSON_INDENT(2));
 
+    json_decref(json);
+}
+
+void handle_users_create(struct HandlerContext *handlerContext) {
+    apiError_t errorCode;
+
+    if (!handlerContext->requestData->postData || handlerContext->requestData->postDataSize <= 0) {
+        errorCode = API_INVALID_PARAMS;
+        handlerContext->responseData->httpStatus =
+            apiError_to_http(errorCode, &handlerContext->responseData->data);
+        return;
+    }
+
+    json_t *root = json_loadb(handlerContext->requestData->postData,
+                              handlerContext->requestData->postDataSize, 0, NULL);
+
+    if (!root || !json_is_object(root)) {
+        errorCode = API_INVALID_PARAMS;
+        handlerContext->responseData->httpStatus =
+            apiError_to_http(errorCode, &handlerContext->responseData->data);
+        return;
+    }
+
+    const char *username = json_string_value(json_object_get(root, "username"));
+    const char *email = json_string_value(json_object_get(root, "email"));
+    const char *password = json_string_value(json_object_get(root, "password"));
+
+    json_t *json = NULL;
+
+    errorCode = users_create(username, email, password, &json);
+
+    handlerContext->responseData->httpStatus =
+        apiError_to_http(errorCode, &handlerContext->responseData->data);
+
+    json_decref(root);
+
+    if (errorCode != API_OK) {
+        return;
+    }
+    handlerContext->responseData->data = json_dumps(json, JSON_INDENT(2));
     json_decref(json);
 }

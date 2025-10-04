@@ -8,6 +8,7 @@ struct HandlerContext {
     const char *method;
     struct ResponseData *responseData;
     struct AuthData *authData;
+    struct RequestData *requestData;
 };
 
 struct ResponseData {

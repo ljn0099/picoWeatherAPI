@@ -89,6 +89,8 @@ apiError_t users_create(const char *username, const char *email, const char *pas
         return API_DB_ERROR;
     }
 
+    PQclear(res);
+
     res = PQexecParams(
         conn,
         "SELECT uuid, username, email, created_at, max_stations, is_admin FROM auth.users "

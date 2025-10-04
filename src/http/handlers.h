@@ -13,4 +13,6 @@ void handle_api_key(struct HandlerContext *handlerContext, const char *userId,
 
 void handle_users_list(struct HandlerContext *handlerContext, const char *userId);
 
+void handle_users_create(struct HandlerContext *handlerContext);
+
 #endif

@@ -15,4 +15,6 @@ typedef enum {
 } apiError_t;
 
 apiError_t users_list(const char *userId, const char *sessionToken, json_t **users);
+apiError_t users_create(const char *username, const char *email, const char *password,
+        json_t **user);
 #endif
