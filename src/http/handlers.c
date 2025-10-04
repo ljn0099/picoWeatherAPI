@@ -1,10 +1,11 @@
 #include "../core/weather.h"
+#include "../utils/utils.h"
 #include "handlers.h"
 #include "server.h"
 #include <jansson.h>
+#include <microhttpd.h>
 #include <stdio.h>
 #include <string.h>
-#include <microhttpd.h>
 
 int apiError_to_http(apiError_t err, char **data) {
     switch (err) {
@@ -41,20 +42,21 @@ void handle_user(struct HandlerContext *handlerContext, const char *userId) {
 
 void handle_user_session(struct HandlerContext *handlerContext, const char *userId,
                          const char *sessionUUID) {
-    printf("User ID: %s, sessionUUID: %s, method: %s\n", userId, sessionUUID,
+    DEBUG_PRINTF("User ID: %s, sessionUUID: %s, method: %s\n", userId, sessionUUID,
            handlerContext->method);
 }
 
 void handle_api_key(struct HandlerContext *handlerContext, const char *userId,
                     const char *apiKeyUUID) {
-    printf("UserId: %s, apiKeyUUID: %s, method: %s\n", userId, apiKeyUUID, handlerContext->method);
+    DEBUG_PRINTF("UserId: %s, apiKeyUUID: %s, method: %s\n", userId, apiKeyUUID, handlerContext->method);
 }
 
 void handle_users_list(struct HandlerContext *handlerContext, const char *userId) {
     json_t *json = NULL;
     apiError_t code = users_list(userId, handlerContext->authData->sessionToken, &json);
 
-    handlerContext->responseData->httpStatus = apiError_to_http(code, &handlerContext->responseData->data);
+    handlerContext->responseData->httpStatus =
+        apiError_to_http(code, &handlerContext->responseData->data);
     if (code != API_OK) {
         return;
     }

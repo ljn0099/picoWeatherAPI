@@ -1,22 +1,13 @@
 #include "handlers.h"
 #include "router.h"
 #include "server.h"
+#include "../utils/utils.h"
 #include <arpa/inet.h>
 #include <microhttpd.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-#ifdef DEBUG
-#define DEBUG_PRINTF(...)                                                                          \
-    do {                                                                                           \
-        fprintf(stderr, "DEBUG: ");                                                                \
-        fprintf(stderr, __VA_ARGS__);                                                              \
-    } while (0)
-#else
-#define DEBUG_PRINTF(...) ((void)0)
-#endif
 
 static struct MHD_Daemon *httpDaemon = NULL;
 
@@ -158,7 +149,7 @@ static enum MHD_Result handle_request(void *cls, struct MHD_Connection *connecti
     // Get user agent
     authData.userAgent = MHD_lookup_connection_value(connection, MHD_HEADER_KIND, "User-Agent");
 
-    printf("Cliente IP: %s, User-Agent: %s\n", authData.clientIp, authData.userAgent);
+    DEBUG_PRINTF("Cliente IP: %s, User-Agent: %s\n", authData.clientIp, authData.userAgent);
 
     // ---- Endpoint handling -----
     struct HandlerContext handlerContext;

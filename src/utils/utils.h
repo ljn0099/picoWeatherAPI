@@ -6,6 +6,16 @@
 #include <sodium.h>
 #include <stdbool.h>
 
+#ifdef DEBUG
+#define DEBUG_PRINTF(...)                                                                          \
+    do {                                                                                           \
+        fprintf(stderr, "DEBUG: ");                                                                \
+        fprintf(stderr, __VA_ARGS__);                                                              \
+    } while (0)
+#else
+#define DEBUG_PRINTF(...) ((void)0)
+#endif
+
 #define UUID_SIZE 36
 #define NAME_SIZE 30
 #define NAME_SIZE_MIN 3
