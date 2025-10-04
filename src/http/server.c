@@ -185,7 +185,7 @@ static enum MHD_Result handle_request(void *cls, struct MHD_Connection *connecti
     if (responseData.sessionToken) {
         char cookieHeader[256];
         snprintf(cookieHeader, sizeof(cookieHeader),
-                 "sessionid=%s; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=%d",
+                 "sessiontoken=%s; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=%d",
                  responseData.sessionToken, responseData.sessionTokenMaxAge);
         MHD_add_response_header(response, "Set-Cookie", cookieHeader);
 

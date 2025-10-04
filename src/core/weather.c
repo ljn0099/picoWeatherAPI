@@ -159,3 +159,45 @@ apiError_t users_delete(const char *userId, const char *sessionToken) {
 
     return API_OK;
 }
+
+apiError_t sessions_create(const char *userId, const char *password, char *sessionToken,
+                           size_t sessionTokenLen, int sessionTokenMaxAge) {
+    if (!userId || !password || !sessionToken)
+        return API_AUTH_ERROR;
+
+    PGconn *conn = get_conn();
+    if (!conn)
+        return API_DB_ERROR;
+
+    if (!validate_password(conn, userId, password))
+        return API_AUTH_ERROR;
+
+    char hashB64[sodium_base64_ENCODED_LEN(crypto_generichash_BYTES, BASE64_VARIANT)];
+
+    generateSessionToken(sessionToken, sessionTokenLen, hashB64, sizeof(hashB64));
+
+    char maxAgeStr[20];
+    sprintf(maxAgeStr, "%d", sessionTokenMaxAge);
+
+    const char *paramValues[3] = {hashB64, userId, maxAgeStr};
+
+    PGresult *res = PQexecParams(conn,
+                                 "INSERT INTO auth.user_sessions "
+                                 "(user_id, session_token, expires_at) "
+                                 "SELECT u.user_id, $1, now() + $3 * interval '1 second' "
+                                 "FROM auth.users u "
+                                 "WHERE u.uuid::text = $2 OR u.username = $2;",
+                                 3, NULL, paramValues, NULL, NULL, 0);
+
+    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+        fprintf(stderr, "Error executing the query: %s", PQerrorMessage(conn));
+        PQclear(res);
+        return API_DB_ERROR;
+    }
+
+    PQclear(res);
+
+    release_conn(conn);
+
+    return API_OK;
+}

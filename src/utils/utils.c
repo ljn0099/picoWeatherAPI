@@ -149,6 +149,30 @@ bool validate_session_token(PGconn *conn, const char *userId, const char *sessio
     }
 }
 
+void generateSessionToken(char *tokenB64, size_t tokenB64Len,
+                          char *hashB64, size_t hashB64Len) {
+    unsigned char sessionToken[KEY_ENTROPY];
+
+    // Generate random token
+    randombytes_buf(sessionToken, sizeof(sessionToken));
+
+    // Convert token to base64
+    sodium_bin2base64(tokenB64, tokenB64Len,
+                      sessionToken, sizeof(sessionToken),
+                      BASE64_VARIANT);
+
+    // Hash the token
+    unsigned char sessionTokenHash[crypto_generichash_BYTES];
+    crypto_generichash(sessionTokenHash, sizeof(sessionTokenHash),
+                       sessionToken, sizeof(sessionToken),
+                       NULL, 0);
+
+    // Convert hash to base64
+    sodium_bin2base64(hashB64, hashB64Len,
+                      sessionTokenHash, sizeof(sessionTokenHash),
+                      BASE64_VARIANT);
+}
+
 json_t *pgresult_to_json(PGresult *res) {
     if (!res || PQresultStatus(res) != PGRES_TUPLES_OK)
         return NULL;
@@ -157,7 +181,7 @@ json_t *pgresult_to_json(PGresult *res) {
     int nFields = PQnfields(res);
 
     if (nRows == 0)
-        return json_array(); // O json_null(), según prefieras
+        return json_array();
 
     json_t *jsonArray = json_array();
     if (!jsonArray)
@@ -226,10 +250,9 @@ json_t *pgresult_to_json(PGresult *res) {
         }
     }
 
-    // Si solo hay un objeto, devolverlo directamente
     if (nRows == 1) {
         json_t *singleObj = json_array_get(jsonArray, 0);
-        json_incref(singleObj); // Incrementamos referencia antes de liberar el array
+        json_incref(singleObj);
         json_decref(jsonArray);
         return singleObj;
     }

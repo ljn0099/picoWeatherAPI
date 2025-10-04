@@ -29,5 +29,8 @@ bool validate_password(PGconn *conn, const char *userId, const char *password);
 
 bool validate_session_token(PGconn *conn, const char *userId, const char *sessionToken);
 
+void generateSessionToken(char *tokenB64, size_t tokenB64Len,
+                          char *hashB64, size_t hashB64Len);
+
 json_t *pgresult_to_json(PGresult *res);
 #endif

@@ -18,4 +18,6 @@ apiError_t users_list(const char *userId, const char *sessionToken, json_t **use
 apiError_t users_create(const char *username, const char *email, const char *password,
         json_t **user);
 apiError_t users_delete(const char *userId, const char *sessionToken);
+apiError_t sessions_create(const char *userId, const char *password, char *sessionToken,
+                           size_t sessionTokenLen, int sessionTokenMaxAge);
 #endif

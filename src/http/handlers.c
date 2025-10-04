@@ -7,6 +7,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#define DEFAULT_SESSION_AGE 3600
+
 int apiError_to_http(apiError_t err, char **data) {
     switch (err) {
         case API_OK:
@@ -47,10 +49,10 @@ void handle_user(struct HandlerContext *handlerContext, const char *userId) {
         handle_users_delete(handlerContext, userId);
 }
 
-void handle_user_session(struct HandlerContext *handlerContext, const char *userId,
-                         const char *sessionUUID) {
-    DEBUG_PRINTF("User ID: %s, sessionUUID: %s, method: %s\n", userId, sessionUUID,
-                 handlerContext->method);
+void handle_sessions(struct HandlerContext *handlerContext, const char *userId,
+                     const char *sessionUUID) {
+    if (strcmp(handlerContext->method, "POST") == 0)
+        handle_sessions_create(handlerContext, userId);
 }
 
 void handle_api_key(struct HandlerContext *handlerContext, const char *userId,
@@ -122,4 +124,46 @@ void handle_users_delete(struct HandlerContext *handlerContext, const char *user
     if (code != API_OK) {
         return;
     }
+}
+
+void handle_sessions_create(struct HandlerContext *handlerContext, const char *userId) {
+    apiError_t errorCode;
+
+    if (!handlerContext->requestData->postData || handlerContext->requestData->postDataSize <= 0) {
+        errorCode = API_INVALID_PARAMS;
+        handlerContext->responseData->httpStatus =
+            apiError_to_http(errorCode, &handlerContext->responseData->data);
+        return;
+    }
+
+    json_t *root = json_loadb(handlerContext->requestData->postData,
+                              handlerContext->requestData->postDataSize, 0, NULL);
+
+    if (!root || !json_is_object(root)) {
+        errorCode = API_INVALID_PARAMS;
+        handlerContext->responseData->httpStatus =
+            apiError_to_http(errorCode, &handlerContext->responseData->data);
+        return;
+    }
+
+    const char *password = json_string_value(json_object_get(root, "password"));
+
+    char tokenB64[sodium_base64_ENCODED_LEN(KEY_ENTROPY, BASE64_VARIANT)];
+
+    errorCode = sessions_create(userId, password, tokenB64, sizeof(tokenB64),
+                                DEFAULT_SESSION_AGE);
+
+    handlerContext->responseData->sessionTokenMaxAge = DEFAULT_SESSION_AGE;
+
+
+    handlerContext->responseData->httpStatus =
+        apiError_to_http(errorCode, &handlerContext->responseData->data);
+
+    json_decref(root);
+
+    if (errorCode != API_OK) {
+        return;
+    }
+
+    handlerContext->responseData->sessionToken = strdup(tokenB64);
 }

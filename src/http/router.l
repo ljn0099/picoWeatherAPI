@@ -84,7 +84,7 @@
         return 0;
     }
 
-    handle_user_session(yyget_extra(yyscanner), userId, NULL);
+    handle_sessions(yyget_extra(yyscanner), userId, NULL);
 }
 
 "/users/"[^/]+"/sessions/"[^/]+ {
@@ -107,7 +107,7 @@
         return 0;
     }
 
-    handle_user_session(yyget_extra(yyscanner), userId, uuid);
+    handle_sessions(yyget_extra(yyscanner), userId, uuid);
 }
 
 .|\n    { /* Ignore other */ }
