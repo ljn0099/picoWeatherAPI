@@ -43,6 +43,8 @@ void handle_user(struct HandlerContext *handlerContext, const char *userId) {
         handle_users_list(handlerContext, userId);
     else if (strcmp(handlerContext->method, "POST") == 0)
         handle_users_create(handlerContext);
+    else if (strcmp(handlerContext->method, "DELETE") == 0)
+        handle_users_delete(handlerContext, userId);
 }
 
 void handle_user_session(struct HandlerContext *handlerContext, const char *userId,
@@ -110,4 +112,14 @@ void handle_users_create(struct HandlerContext *handlerContext) {
     }
     handlerContext->responseData->data = json_dumps(json, JSON_INDENT(2));
     json_decref(json);
+}
+
+void handle_users_delete(struct HandlerContext *handlerContext, const char *userId) {
+    apiError_t code = users_delete(userId, handlerContext->authData->sessionToken);
+
+    handlerContext->responseData->httpStatus =
+        apiError_to_http(code, &handlerContext->responseData->data);
+    if (code != API_OK) {
+        return;
+    }
 }

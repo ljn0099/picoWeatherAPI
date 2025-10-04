@@ -76,11 +76,10 @@ apiError_t users_create(const char *username, const char *email, const char *pas
 
     const char *paramValues[3] = {username, email, hashedPassword};
 
-    res = PQexecParams(
-            conn,
-            "INSERT INTO auth.users (username, email, password) "
-            "VALUES ($1, $2, $3);",
-            3, NULL, paramValues, NULL, NULL, 0);
+    res = PQexecParams(conn,
+                       "INSERT INTO auth.users (username, email, password) "
+                       "VALUES ($1, $2, $3);",
+                       3, NULL, paramValues, NULL, NULL, 0);
 
     if (PQresultStatus(res) != PGRES_COMMAND_OK) {
         fprintf(stderr, "Error executing the query: %s", PQerrorMessage(conn));
@@ -115,6 +114,43 @@ apiError_t users_create(const char *username, const char *email, const char *pas
         PQclear(res);
         release_conn(conn);
         return API_JSON_ERROR;
+    }
+
+    PQclear(res);
+
+    release_conn(conn);
+
+    return API_OK;
+}
+
+apiError_t users_delete(const char *userId, const char *sessionToken) {
+    if (!sessionToken)
+        return API_AUTH_ERROR;
+
+    PGconn *conn = get_conn();
+    if (!conn)
+        return API_DB_ERROR;
+
+    if (!validate_session_token(conn, userId, sessionToken)) {
+        release_conn(conn);
+        return API_AUTH_ERROR;
+    }
+
+    const char *paramValues[1] = {userId};
+
+    PGresult *res = PQexecParams(conn,
+                                 "UPDATE auth.users "
+                                 " SET deleted_at = now() "
+                                 " WHERE (uuid::text = $1 OR username = $1) "
+                                 " AND deleted_at IS NULL;",
+                                 1, // number of parameters
+                                 NULL, paramValues, NULL, NULL, 0);
+
+    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+        fprintf(stderr, "Error executing the query: %s", PQerrorMessage(conn));
+        PQclear(res);
+        release_conn(conn);
+        return API_DB_ERROR;
     }
 
     PQclear(res);
