@@ -1,4 +1,5 @@
 #include "../database/database.h"
+#include "../http/server.h"
 #include "../utils/utils.h"
 #include "weather.h"
 #include <jansson.h>
@@ -7,15 +8,15 @@
 #include <stdlib.h>
 #include <string.h>
 
-apiError_t users_list(const char *userId, const char *sessionToken, json_t **users) {
-    if (!sessionToken || !users)
+apiError_t users_list(const char *userId, const struct AuthData *authData, json_t **users) {
+    if (!authData->sessionToken || !users)
         return API_AUTH_ERROR;
 
     PGconn *conn = get_conn();
     if (!conn)
         return API_DB_ERROR;
 
-    if (!validate_session_token(conn, userId, sessionToken)) {
+    if (!validate_session_token(conn, userId, authData->sessionToken)) {
         release_conn(conn);
         return API_AUTH_ERROR;
     }
@@ -123,15 +124,15 @@ apiError_t users_create(const char *username, const char *email, const char *pas
     return API_OK;
 }
 
-apiError_t users_delete(const char *userId, const char *sessionToken) {
-    if (!sessionToken)
+apiError_t users_delete(const char *userId, const struct AuthData *authData) {
+    if (!authData->sessionToken)
         return API_AUTH_ERROR;
 
     PGconn *conn = get_conn();
     if (!conn)
         return API_DB_ERROR;
 
-    if (!validate_session_token(conn, userId, sessionToken)) {
+    if (!validate_session_token(conn, userId, authData->sessionToken)) {
         release_conn(conn);
         return API_AUTH_ERROR;
     }
@@ -160,8 +161,9 @@ apiError_t users_delete(const char *userId, const char *sessionToken) {
     return API_OK;
 }
 
-apiError_t sessions_create(const char *userId, const char *password, char *sessionToken,
-                           size_t sessionTokenLen, int sessionTokenMaxAge) {
+apiError_t sessions_create(const char *userId, const struct AuthData *authData, const char *password,
+                           char *sessionToken, size_t sessionTokenLen, int sessionTokenMaxAge,
+                           json_t **session) {
     if (!userId || !password || !sessionToken)
         return API_AUTH_ERROR;
 
@@ -179,20 +181,51 @@ apiError_t sessions_create(const char *userId, const char *password, char *sessi
     char maxAgeStr[20];
     sprintf(maxAgeStr, "%d", sessionTokenMaxAge);
 
-    const char *paramValues[3] = {hashB64, userId, maxAgeStr};
+    PGresult *res = NULL;
 
-    PGresult *res = PQexecParams(conn,
-                                 "INSERT INTO auth.user_sessions "
-                                 "(user_id, session_token, expires_at) "
-                                 "SELECT u.user_id, $1, now() + $3 * interval '1 second' "
-                                 "FROM auth.users u "
-                                 "WHERE u.uuid::text = $2 OR u.username = $2;",
-                                 3, NULL, paramValues, NULL, NULL, 0);
+    const char *paramValues[5] = {hashB64, userId, maxAgeStr, authData->clientIp, authData->userAgent};
+
+    res = PQexecParams(conn,
+                       "INSERT INTO auth.user_sessions "
+                       "(user_id, session_token, expires_at, ip_address, user_agent) "
+                       "SELECT u.user_id, $1, now() + $3 * interval '1 second', $4, $5 "
+                       "FROM auth.users u "
+                       "WHERE u.uuid::text = $2 OR u.username = $2;",
+                       5, NULL, paramValues, NULL, NULL, 0);
 
     if (PQresultStatus(res) != PGRES_COMMAND_OK) {
         fprintf(stderr, "Error executing the query: %s", PQerrorMessage(conn));
         PQclear(res);
         return API_DB_ERROR;
+    }
+
+    PQclear(res);
+
+    res = PQexecParams(
+        conn,
+        "SELECT uuid, created_at, last_seen_at, expires_at, reauth_at, ip_address, user_agent "
+        "FROM auth.user_sessions "
+        "WHERE session_token = $1",
+        1, NULL, paramValues, NULL, NULL, 0);
+
+    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        fprintf(stderr, "Error executing the query: %s", PQerrorMessage(conn));
+        PQclear(res);
+        release_conn(conn);
+        return API_DB_ERROR;
+    }
+
+    if (PQntuples(res) == 0) {
+        PQclear(res);
+        release_conn(conn);
+        return API_NOT_FOUND;
+    }
+
+    *session = pgresult_to_json(res);
+    if (!*session) {
+        PQclear(res);
+        release_conn(conn);
+        return API_JSON_ERROR;
     }
 
     PQclear(res);

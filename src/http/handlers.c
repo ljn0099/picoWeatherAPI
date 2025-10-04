@@ -63,7 +63,7 @@ void handle_api_key(struct HandlerContext *handlerContext, const char *userId,
 
 void handle_users_list(struct HandlerContext *handlerContext, const char *userId) {
     json_t *json = NULL;
-    apiError_t code = users_list(userId, handlerContext->authData->sessionToken, &json);
+    apiError_t code = users_list(userId, handlerContext->authData, &json);
 
     handlerContext->responseData->httpStatus =
         apiError_to_http(code, &handlerContext->responseData->data);
@@ -117,7 +117,7 @@ void handle_users_create(struct HandlerContext *handlerContext) {
 }
 
 void handle_users_delete(struct HandlerContext *handlerContext, const char *userId) {
-    apiError_t code = users_delete(userId, handlerContext->authData->sessionToken);
+    apiError_t code = users_delete(userId, handlerContext->authData);
 
     handlerContext->responseData->httpStatus =
         apiError_to_http(code, &handlerContext->responseData->data);
@@ -150,8 +150,10 @@ void handle_sessions_create(struct HandlerContext *handlerContext, const char *u
 
     char tokenB64[sodium_base64_ENCODED_LEN(KEY_ENTROPY, BASE64_VARIANT)];
 
-    errorCode = sessions_create(userId, password, tokenB64, sizeof(tokenB64),
-                                DEFAULT_SESSION_AGE);
+    json_t *json = NULL;
+
+    errorCode = sessions_create(userId, handlerContext->authData, password, tokenB64, sizeof(tokenB64),
+                                DEFAULT_SESSION_AGE, &json);
 
     handlerContext->responseData->sessionTokenMaxAge = DEFAULT_SESSION_AGE;
 
@@ -166,4 +168,6 @@ void handle_sessions_create(struct HandlerContext *handlerContext, const char *u
     }
 
     handlerContext->responseData->sessionToken = strdup(tokenB64);
+    handlerContext->responseData->data = json_dumps(json, JSON_INDENT(2));
+    json_decref(json);
 }
