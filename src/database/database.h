@@ -6,10 +6,6 @@
 
 bool init_db_vars();
 
-PGconn *init_db_conn();
-
-void close_db_conn();
-
 bool init_pool();
 void free_pool();
 

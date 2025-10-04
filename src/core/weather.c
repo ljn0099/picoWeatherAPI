@@ -16,7 +16,7 @@ apiError_t users_list(const char *userId, const char *sessionToken, json_t **use
         return API_DB_ERROR;
 
     if (!validate_session_token(conn, userId, sessionToken)) {
-        close_db_conn(conn);
+        release_conn(conn);
         return API_AUTH_ERROR;
     }
 
@@ -32,20 +32,20 @@ apiError_t users_list(const char *userId, const char *sessionToken, json_t **use
     if (PQresultStatus(res) != PGRES_TUPLES_OK) {
         fprintf(stderr, "Error executing the query: %s", PQerrorMessage(conn));
         PQclear(res);
-        close_db_conn(conn);
+        release_conn(conn);
         return API_DB_ERROR;
     }
 
     if (PQntuples(res) == 0) {
         PQclear(res);
-        close_db_conn(conn);
+        release_conn(conn);
         return API_NOT_FOUND;
     }
 
     *users = pgresult_to_json(res);
     if (!*users) {
         PQclear(res);
-        close_db_conn(conn);
+        release_conn(conn);
         return API_JSON_ERROR;
     }
 

@@ -40,7 +40,7 @@ int main(void) {
 
     if (http_server_init(apiPort) != 0) {
         fprintf(stderr, "Failed to initialize HTTP server\n");
-        close_db_conn();
+        free_pool();
         return EXIT_FAILURE;
     }
 
