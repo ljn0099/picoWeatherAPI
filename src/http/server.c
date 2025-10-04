@@ -13,18 +13,12 @@ static struct MHD_Daemon *httpDaemon = NULL;
 
 #define MAX_POST_DATA_SIZE 16384 // 16KiB max
 
-struct ConnectionInfo {
-    char *postData;
-    size_t postDataSize;
-    int postDataProcessed;
-};
-
-static void free_connection_info(struct ConnectionInfo *conInfo) {
-    if (conInfo) {
-        if (conInfo->postData) {
-            free(conInfo->postData);
+static void free_request_data(struct RequestData *requestData) {
+    if (requestData) {
+        if (requestData->postData) {
+            free(requestData->postData);
         }
-        free(conInfo);
+        free(requestData);
     }
 }
 
@@ -74,25 +68,25 @@ static enum MHD_Result handle_request(void *cls, struct MHD_Connection *connecti
     DEBUG_PRINTF("Request [%s] %s\n", method, url);
     DEBUG_PRINTF("uploadDataSize = %zu\n", uploadDataSize ? *uploadDataSize : 0);
 
-    struct ConnectionInfo *conInfo = *conCls;
+    struct RequestData *requestData = *conCls;
 
     // Reserve memory for the body of the request
-    if (method_accepts_body(method) && conInfo == NULL) {
+    if (method_accepts_body(method) && requestData == NULL) {
         DEBUG_PRINTF("First call - initializing connection info\n");
-        conInfo = calloc(1, sizeof(struct ConnectionInfo));
-        if (!conInfo)
+        requestData = calloc(1, sizeof(struct RequestData));
+        if (!requestData)
             return MHD_NO;
 
-        conInfo->postData = malloc(MAX_POST_DATA_SIZE);
-        if (!conInfo->postData) {
-            free(conInfo);
+        requestData->postData = malloc(MAX_POST_DATA_SIZE);
+        if (!requestData->postData) {
+            free(requestData);
             return MHD_NO;
         }
-        conInfo->postData[0] = '\0';
-        conInfo->postDataSize = 0;
-        conInfo->postDataProcessed = 0;
+        requestData->postData[0] = '\0';
+        requestData->postDataSize = 0;
+        requestData->postDataProcessed = 0;
 
-        *conCls = conInfo;
+        *conCls = requestData;
         return MHD_YES;
     }
 
@@ -103,12 +97,12 @@ static enum MHD_Result handle_request(void *cls, struct MHD_Connection *connecti
             DEBUG_PRINTF("Data: '%.*s'\n", (int)*uploadDataSize, uploadData);
         }
 
-        if (conInfo->postDataSize + *uploadDataSize <= MAX_POST_DATA_SIZE) {
-            memcpy(conInfo->postData + conInfo->postDataSize, uploadData, *uploadDataSize);
-            conInfo->postDataSize += *uploadDataSize;
-            conInfo->postData[conInfo->postDataSize] = '\0'; // Null-terminate
+        if (requestData->postDataSize + *uploadDataSize <= MAX_POST_DATA_SIZE) {
+            memcpy(requestData->postData + requestData->postDataSize, uploadData, *uploadDataSize);
+            requestData->postDataSize += *uploadDataSize;
+            requestData->postData[requestData->postDataSize] = '\0'; // Null-terminate
 
-            DEBUG_PRINTF("Total accumulated data: %zu bytes\n", conInfo->postDataSize);
+            DEBUG_PRINTF("Total accumulated data: %zu bytes\n", requestData->postDataSize);
             *uploadDataSize = 0;
             return MHD_YES;
         }
@@ -116,17 +110,17 @@ static enum MHD_Result handle_request(void *cls, struct MHD_Connection *connecti
     }
 
     // Mark the body as fully recived
-    if (method_accepts_body(method) && !conInfo->postDataProcessed) {
+    if (method_accepts_body(method) && !requestData->postDataProcessed) {
         DEBUG_PRINTF("Finished receiving data - setting processed flag\n");
-        conInfo->postDataProcessed = 1;
+        requestData->postDataProcessed = 1;
         return MHD_YES;
     }
 
     // Print the body
-    if (conInfo != NULL) {
-        DEBUG_PRINTF("Processing request with %zu bytes of data\n", conInfo->postDataSize);
-        if (conInfo->postDataSize > 0) {
-            DEBUG_PRINTF("Data: '%.*s'\n", (int)conInfo->postDataSize, conInfo->postData);
+    if (requestData != NULL) {
+        DEBUG_PRINTF("Processing request with %zu bytes of data\n", requestData->postDataSize);
+        if (requestData->postDataSize > 0) {
+            DEBUG_PRINTF("Data: '%.*s'\n", (int)requestData->postDataSize, requestData->postData);
         }
     }
 
@@ -202,7 +196,7 @@ static enum MHD_Result handle_request(void *cls, struct MHD_Connection *connecti
     MHD_destroy_response(response);
 
     // Free the post data
-    free_connection_info(conInfo);
+    free_request_data(requestData);
     *conCls = NULL;
 
     return ret;

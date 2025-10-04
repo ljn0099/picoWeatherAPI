@@ -10,6 +10,7 @@ typedef enum {
     API_NOT_FOUND,
     API_DB_ERROR,
     API_FORBIDDEN,
+    API_MEMORY_ERROR,
     API_JSON_ERROR
 } apiError_t;
 

@@ -1,5 +1,5 @@
-#include "../utils/utils.h"
 #include "../database/database.h"
+#include "../utils/utils.h"
 #include "weather.h"
 #include <jansson.h>
 #include <libpq-fe.h>
@@ -44,6 +44,72 @@ apiError_t users_list(const char *userId, const char *sessionToken, json_t **use
 
     *users = pgresult_to_json(res);
     if (!*users) {
+        PQclear(res);
+        release_conn(conn);
+        return API_JSON_ERROR;
+    }
+
+    PQclear(res);
+
+    release_conn(conn);
+
+    return API_OK;
+}
+
+apiError_t users_create(const char *username, const char *email, const char *password,
+                        json_t **user) {
+    if (!username || !email || !password)
+        return API_INVALID_PARAMS;
+
+    char hashedPassword[crypto_pwhash_STRBYTES];
+
+    if (crypto_pwhash_str(hashedPassword, password, strlen(password),
+                          crypto_pwhash_OPSLIMIT_MODERATE, crypto_pwhash_MEMLIMIT_MODERATE) != 0) {
+        return API_MEMORY_ERROR;
+    }
+
+    PGconn *conn = get_conn();
+    if (!conn)
+        return API_DB_ERROR;
+
+    PGresult *res = NULL;
+
+    const char *paramValues[3] = {username, email, hashedPassword};
+
+    res = PQexecParams(
+            conn,
+            "INSERT INTO auth.users (username, email, password) "
+            "VALUES ($1, $2, $3);",
+            3, NULL, paramValues, NULL, NULL, 0);
+
+    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+        fprintf(stderr, "Error executing the query: %s", PQerrorMessage(conn));
+        PQclear(res);
+        release_conn(conn);
+        return API_DB_ERROR;
+    }
+
+    res = PQexecParams(
+        conn,
+        "SELECT uuid, username, email, created_at, max_stations, is_admin FROM auth.users "
+        "WHERE username = $1;",
+        1, NULL, paramValues, NULL, NULL, 0);
+
+    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        fprintf(stderr, "Error executing the query: %s", PQerrorMessage(conn));
+        PQclear(res);
+        release_conn(conn);
+        return API_DB_ERROR;
+    }
+
+    if (PQntuples(res) == 0) {
+        PQclear(res);
+        release_conn(conn);
+        return API_NOT_FOUND;
+    }
+
+    *user = pgresult_to_json(res);
+    if (!*user) {
         PQclear(res);
         release_conn(conn);
         return API_JSON_ERROR;

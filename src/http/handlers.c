@@ -29,6 +29,9 @@ int apiError_to_http(apiError_t err, char **data) {
         case API_JSON_ERROR:
             *data = strdup("{\"error\":\"Json parsing error\"}");
             return MHD_HTTP_INTERNAL_SERVER_ERROR;
+        case API_MEMORY_ERROR:
+            *data = strdup("{\"error\":\"Memory error\"}");
+            return MHD_HTTP_INTERNAL_SERVER_ERROR;
         default:
             *data = strdup("{\"error\":\"Internal server error\"}");
             return MHD_HTTP_INTERNAL_SERVER_ERROR;
@@ -37,6 +40,8 @@ int apiError_to_http(apiError_t err, char **data) {
 
 void handle_user(struct HandlerContext *handlerContext, const char *userId) {
     if (strcmp(handlerContext->method, "GET") == 0)
+        handle_users_list(handlerContext, userId);
+    else if (strcmp(handlerContext->method, "POST") == 0)
         handle_users_list(handlerContext, userId);
 }
 
