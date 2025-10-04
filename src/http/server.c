@@ -217,10 +217,12 @@ static enum MHD_Result handle_request(void *cls, struct MHD_Connection *connecti
     return ret;
 }
 
-int http_server_init(int port) {
-    httpDaemon = MHD_start_daemon(MHD_USE_THREAD_PER_CONNECTION | MHD_USE_IPv6 | MHD_USE_DUAL_STACK,
-                                  port, NULL, NULL, (MHD_AccessHandlerCallback)&handle_request,
-                                  NULL, MHD_OPTION_END);
+int http_server_init(int port, int nThreads) {
+    httpDaemon = MHD_start_daemon(
+        MHD_USE_EPOLL_INTERNALLY | MHD_USE_IPv6 | MHD_USE_DUAL_STACK, port,
+        NULL, NULL, &handle_request, NULL, MHD_OPTION_THREAD_POOL_SIZE, nThreads,
+        MHD_OPTION_END);
+
     if (httpDaemon)
         return 0;
     else

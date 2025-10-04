@@ -2,15 +2,16 @@
 #include <pthread.h>
 #include <stdbool.h>
 #include <stdlib.h>
-
-#define MAX_CONN 10
+#include <unistd.h>
 
 typedef struct {
     PGconn *conn;
     int busy;
 } ConnWrapper;
 
-ConnWrapper pool[MAX_CONN];
+ConnWrapper *pool;
+int maxConn;
+
 pthread_mutex_t poolMutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t poolCond = PTHREAD_COND_INITIALIZER;
 
@@ -41,6 +42,20 @@ bool init_db_vars() {
             fprintf(stderr, "DB_PASS\n");
         return false;
     }
+
+    // Max connections
+    const char *maxConnStr = getenv("MAX_DB_CONN");
+    if (maxConnStr) {
+        maxConn = atoi(maxConnStr);
+        if (maxConn <= 0)
+            maxConn = 1; // fallback
+    }
+    else {
+        maxConn = (int)sysconf(_SC_NPROCESSORS_ONLN);
+        if (maxConn <= 0)
+            maxConn = 1; // fallback
+    }
+
     return true;
 }
 
@@ -61,24 +76,42 @@ PGconn *init_db_conn() {
     return conn;
 }
 
-void close_db_conn(PGconn *conn) {
-    PQfinish(conn);
-}
-
 bool init_pool() {
-    for (int i = 0; i < MAX_CONN; i++) {
+    // Reserve memory for the pool
+    pool = malloc(sizeof(ConnWrapper) * maxConn);
+    if (!pool) {
+        perror("malloc");
+        return false;
+    }
+
+    for (int i = 0; i < maxConn; i++) {
         pool[i].conn = init_db_conn();
-        if (!pool[i].conn)
-            return false;
         pool[i].busy = 0;
+        if (!pool[i].conn) {
+            // Clean all initialized connections
+            for (int j = 0; j < i; j++)
+                PQfinish(pool[j].conn);
+            free(pool);
+            pool = NULL;
+            return false;
+        }
     }
     return true;
 }
 
 void free_pool() {
-    for (int i = 0; i < MAX_CONN; i++) {
+    if (!pool)
+        return;
+
+    for (int i = 0; i < maxConn; i++) {
         PQfinish(pool[i].conn);
     }
+
+    free(pool);
+    pool = NULL;
+
+    pthread_mutex_destroy(&poolMutex);
+    pthread_cond_destroy(&poolCond);
 }
 
 PGconn *get_conn() {
@@ -88,7 +121,7 @@ PGconn *get_conn() {
 
     // Wait for a free connection
     while (1) {
-        for (int i = 0; i < MAX_CONN; i++) {
+        for (int i = 0; i < maxConn; i++) {
             if (pool[i].busy == 0) {
                 pool[i].busy = 1; // Mark connection as busy
                 ret = pool[i].conn;
@@ -103,7 +136,7 @@ PGconn *get_conn() {
 
 void release_conn(PGconn *conn) {
     pthread_mutex_lock(&poolMutex);
-    for (int i = 0; i < MAX_CONN; i++) {
+    for (int i = 0; i < maxConn; i++) {
         if (pool[i].conn == conn) {
             pool[i].busy = 0;               // Mark connection as free
             pthread_cond_signal(&poolCond); // Awake a waiting thread

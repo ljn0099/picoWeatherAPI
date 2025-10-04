@@ -38,7 +38,9 @@ int main(void) {
     else
         apiPort = 8080;
 
-    if (http_server_init(apiPort) != 0) {
+    int nThreads = sysconf(_SC_NPROCESSORS_ONLN);
+
+    if (http_server_init(apiPort, nThreads) != 0) {
         fprintf(stderr, "Failed to initialize HTTP server\n");
         free_pool();
         return EXIT_FAILURE;

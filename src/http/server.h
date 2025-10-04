@@ -24,7 +24,7 @@ struct AuthData {
     const char *userAgent;
 };
 
-int http_server_init(int port);
+int http_server_init(int port, int nThreads);
 
 void http_server_process(void);
 

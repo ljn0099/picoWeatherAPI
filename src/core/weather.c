@@ -9,7 +9,7 @@
 
 apiError_t users_list(const char *userId, const char *sessionToken, json_t **users) {
     if (!sessionToken || !users)
-        return API_INVALID_PARAMS;
+        return API_AUTH_ERROR;
 
     PGconn *conn = get_conn();
     if (!conn)
