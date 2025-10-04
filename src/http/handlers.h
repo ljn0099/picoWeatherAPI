@@ -20,4 +20,6 @@ void handle_users_delete(struct HandlerContext *handlerContext, const char *user
 
 void handle_sessions_create(struct HandlerContext *handlerContext, const char *userId);
 
+void handle_sessions_list(struct HandlerContext *handlerContext, const char *userId, const char *sessionUUID);
+
 #endif

@@ -161,9 +161,9 @@ apiError_t users_delete(const char *userId, const struct AuthData *authData) {
     return API_OK;
 }
 
-apiError_t sessions_create(const char *userId, const struct AuthData *authData, const char *password,
-                           char *sessionToken, size_t sessionTokenLen, int sessionTokenMaxAge,
-                           json_t **session) {
+apiError_t sessions_create(const char *userId, const struct AuthData *authData,
+                           const char *password, char *sessionToken, size_t sessionTokenLen,
+                           int sessionTokenMaxAge, json_t **session) {
     if (!userId || !password || !sessionToken)
         return API_AUTH_ERROR;
 
@@ -183,7 +183,8 @@ apiError_t sessions_create(const char *userId, const struct AuthData *authData, 
 
     PGresult *res = NULL;
 
-    const char *paramValues[5] = {hashB64, userId, maxAgeStr, authData->clientIp, authData->userAgent};
+    const char *paramValues[5] = {hashB64, userId, maxAgeStr, authData->clientIp,
+                                  authData->userAgent};
 
     res = PQexecParams(conn,
                        "INSERT INTO auth.user_sessions "
@@ -223,6 +224,59 @@ apiError_t sessions_create(const char *userId, const struct AuthData *authData, 
 
     *session = pgresult_to_json(res);
     if (!*session) {
+        PQclear(res);
+        release_conn(conn);
+        return API_JSON_ERROR;
+    }
+
+    PQclear(res);
+
+    release_conn(conn);
+
+    return API_OK;
+}
+
+apiError_t sessions_list(const char *userId, const char *sessionUUID, const struct AuthData *authData, 
+                         json_t **sessions) {
+    if (!authData->sessionToken || !userId)
+        return API_INVALID_PARAMS;
+
+    PGconn *conn = get_conn();
+    if (!conn)
+        return API_DB_ERROR;
+
+    if (!validate_session_token(conn, userId, authData->sessionToken))
+        return API_AUTH_ERROR;
+
+    const char *paramValues[2] = {userId, sessionUUID};
+
+    PGresult *res = PQexecParams(conn,
+                                 "SELECT s.created_at, "
+                                 "s.last_seen_at, s.expires_at, s.reauth_at, s.ip_address, "
+                                 "s.user_agent, s.uuid "
+                                 "FROM auth.user_sessions s "
+                                 "JOIN auth.users u ON s.user_id = u.user_id "
+                                 "WHERE s.expires_at > NOW() "
+                                 "  AND s.revoked_at IS NULL "
+                                 "  AND (u.uuid::text = $1::text OR u.username = $1::text) "
+                                 "  AND ($2::text IS NULL OR s.uuid::text = $2::text)",
+                                 2, NULL, paramValues, NULL, NULL, 0);
+
+    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        fprintf(stderr, "Error executing the query: %s", PQerrorMessage(conn));
+        PQclear(res);
+        release_conn(conn);
+        return API_DB_ERROR;
+    }
+
+    if (PQntuples(res) == 0) {
+        PQclear(res);
+        release_conn(conn);
+        return API_NOT_FOUND;
+    }
+
+    *sessions = pgresult_to_json(res);
+    if (!*sessions) {
         PQclear(res);
         release_conn(conn);
         return API_JSON_ERROR;

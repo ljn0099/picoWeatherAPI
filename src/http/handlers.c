@@ -51,7 +51,9 @@ void handle_user(struct HandlerContext *handlerContext, const char *userId) {
 
 void handle_sessions(struct HandlerContext *handlerContext, const char *userId,
                      const char *sessionUUID) {
-    if (strcmp(handlerContext->method, "POST") == 0)
+    if (strcmp(handlerContext->method, "GET") == 0)
+        handle_sessions_list(handlerContext, userId, sessionUUID);
+    else if (strcmp(handlerContext->method, "POST") == 0)
         handle_sessions_create(handlerContext, userId);
 }
 
@@ -169,5 +171,20 @@ void handle_sessions_create(struct HandlerContext *handlerContext, const char *u
 
     handlerContext->responseData->sessionToken = strdup(tokenB64);
     handlerContext->responseData->data = json_dumps(json, JSON_INDENT(2));
+    json_decref(json);
+}
+
+void handle_sessions_list(struct HandlerContext *handlerContext, const char *userId, const char *sessionUUID) {
+    json_t *json = NULL;
+    apiError_t code = sessions_list(userId, sessionUUID, handlerContext->authData, &json);
+
+    handlerContext->responseData->httpStatus =
+        apiError_to_http(code, &handlerContext->responseData->data);
+    if (code != API_OK) {
+        return;
+    }
+
+    handlerContext->responseData->data = json_dumps(json, JSON_INDENT(2));
+
     json_decref(json);
 }

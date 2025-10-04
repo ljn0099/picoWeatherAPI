@@ -25,4 +25,7 @@ apiError_t users_delete(const char *userId, const struct AuthData *authData);
 apiError_t sessions_create(const char *userId, const struct AuthData *authData, const char *password,
                            char *sessionToken, size_t sessionTokenLen, int sessionTokenMaxAge,
                            json_t **session);
+
+apiError_t sessions_list(const char *userId, const char *sessionUUID,
+                         const struct AuthData *authData, json_t **sessions);
 #endif
