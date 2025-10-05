@@ -27,7 +27,7 @@
 
     // Validation
     if (!validate_name(userId) && !validate_uuid(userId)) {
-        printf("Invalid userId: %s\n", userId);
+        DEBUG_PRINTF("Invalid userId: %s\n", userId);
         return 0;
     }
 
@@ -42,7 +42,7 @@
     char *userId = start;
     // Validation
     if (!validate_name(userId) && !validate_uuid(userId)) {
-        printf("Invalid userId: %s\n", userId);
+        DEBUG_PRINTF("Invalid userId: %s\n", userId);
         return 0;
     }
 
@@ -60,12 +60,12 @@
 
     // Validation
     if (!validate_name(userId) && !validate_uuid(userId)) {
-        printf("Invalid name: %s\n", userId);
+        DEBUG_PRINTF("Invalid name: %s\n", userId);
         return 0;
     }
 
     if (!validate_uuid(uuid)) {
-        printf("Invalid UUID: %s\n", uuid);
+        DEBUG_PRINTF("Invalid UUID: %s\n", uuid);
         return 0;
     }
 
@@ -80,7 +80,7 @@
     char *userId = start;
     // Validation
     if (!validate_name(userId) && !validate_uuid(userId)) {
-        printf("Invalid userId: %s\n", userId);
+        DEBUG_PRINTF("Invalid userId: %s\n", userId);
         return 0;
     }
 
@@ -98,16 +98,35 @@
 
     // Validation
     if (!validate_name(userId) && !validate_uuid(userId)) {
-        printf("Invalid name: %s\n", userId);
+        DEBUG_PRINTF("Invalid name: %s\n", userId);
         return 0;
     }
 
     if (!validate_uuid(uuid)) {
-        printf("Invalid UUID: %s\n", uuid);
+        DEBUG_PRINTF("Invalid UUID: %s\n", uuid);
         return 0;
     }
 
     handle_sessions(yyget_extra(yyscanner), userId, uuid);
+}
+
+"/stations" {
+    handle_stations(yyget_extra(yyscanner), NULL);
+}
+
+"/stations/"[^/]+ {
+    char *start = yytext + USERS_PREFIX_LEN;  // after '/stations/'
+    char *slash = strchr(start, '/');  // find the '/'
+    *slash = '\0';
+
+    char *stationId = start;
+    // Validation
+    if (!validate_name(stationId) && !validate_uuid(stationId)) {
+        DEBUG_PRINTF("Invalid stationId: %s\n", stationId);
+        return 0;
+    }
+
+    handle_stations(yyget_extra(yyscanner), stationId);
 }
 
 .|\n    { /* Ignore other */ }

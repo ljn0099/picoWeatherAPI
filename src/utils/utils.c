@@ -149,31 +149,72 @@ bool validate_session_token(PGconn *conn, const char *userId, const char *sessio
     }
 }
 
-void generateSessionToken(char *tokenB64, size_t tokenB64Len,
-                          char *hashB64, size_t hashB64Len) {
+bool get_user_session_token(PGconn *conn, char **userId, const char *sessionToken) {
+    if (!sessionToken || !userId)
+        return false;
+
+    unsigned char recievedToken[KEY_ENTROPY];
+    if (sodium_base642bin(recievedToken, sizeof(recievedToken), sessionToken, strlen(sessionToken),
+                          NULL, NULL, NULL, BASE64_VARIANT) != 0) {
+        return false;
+    }
+
+    unsigned char recievedTokenHash[crypto_generichash_BYTES];
+    crypto_generichash(recievedTokenHash, sizeof(recievedTokenHash), recievedToken,
+                       sizeof(recievedToken), NULL, 0);
+
+    // Convert the hash into base64 for the query
+    char recievedTokenHashB64[sodium_base64_ENCODED_LEN((sizeof(recievedTokenHash)),
+                                                        BASE64_VARIANT)];
+    sodium_bin2base64(recievedTokenHashB64, sizeof(recievedTokenHashB64), recievedTokenHash,
+                      (sizeof(recievedTokenHash)), BASE64_VARIANT);
+
+    const char *paramValues[1] = {recievedTokenHashB64};
+
+    PGresult *res = PQexecParams(conn, "SELECT u.uuid AS user_uuid "
+                                       "FROM auth.user_sessions s "
+                                       "JOIN auth.users u ON s.user_id = u.user_id "
+                                       "WHERE s.session_token = $1",
+                                       1, NULL, paramValues, NULL, NULL, 0);
+
+    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        fprintf(stderr, "Error executing query: %s\n", PQerrorMessage(conn));
+        PQclear(res);
+        return false;
+    }
+
+    if (PQntuples(res) > 0) {
+        *userId = strdup(PQgetvalue(res, 0, 0));
+    }
+    else {
+        PQclear(res);
+        return false;
+    }
+
+    PQclear(res);
+    return true;
+}
+
+void generateSessionToken(char *tokenB64, size_t tokenB64Len, char *hashB64, size_t hashB64Len) {
     unsigned char sessionToken[KEY_ENTROPY];
 
     // Generate random token
     randombytes_buf(sessionToken, sizeof(sessionToken));
 
     // Convert token to base64
-    sodium_bin2base64(tokenB64, tokenB64Len,
-                      sessionToken, sizeof(sessionToken),
-                      BASE64_VARIANT);
+    sodium_bin2base64(tokenB64, tokenB64Len, sessionToken, sizeof(sessionToken), BASE64_VARIANT);
 
     // Hash the token
     unsigned char sessionTokenHash[crypto_generichash_BYTES];
-    crypto_generichash(sessionTokenHash, sizeof(sessionTokenHash),
-                       sessionToken, sizeof(sessionToken),
-                       NULL, 0);
+    crypto_generichash(sessionTokenHash, sizeof(sessionTokenHash), sessionToken,
+                       sizeof(sessionToken), NULL, 0);
 
     // Convert hash to base64
-    sodium_bin2base64(hashB64, hashB64Len,
-                      sessionTokenHash, sizeof(sessionTokenHash),
+    sodium_bin2base64(hashB64, hashB64Len, sessionTokenHash, sizeof(sessionTokenHash),
                       BASE64_VARIANT);
 }
 
-json_t *pgresult_to_json(PGresult *res) {
+json_t *pgresult_to_json(PGresult *res, bool canBeObject) {
     if (!res || PQresultStatus(res) != PGRES_TUPLES_OK)
         return NULL;
 
@@ -250,7 +291,7 @@ json_t *pgresult_to_json(PGresult *res) {
         }
     }
 
-    if (nRows == 1) {
+    if (nRows == 1 && canBeObject) {
         json_t *singleObj = json_array_get(jsonArray, 0);
         json_incref(singleObj);
         json_decref(jsonArray);

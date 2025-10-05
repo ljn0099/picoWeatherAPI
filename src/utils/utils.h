@@ -32,5 +32,7 @@ bool validate_session_token(PGconn *conn, const char *userId, const char *sessio
 void generateSessionToken(char *tokenB64, size_t tokenB64Len,
                           char *hashB64, size_t hashB64Len);
 
-json_t *pgresult_to_json(PGresult *res);
+bool get_user_session_token(PGconn *conn, char **userId, const char *sessionToken);
+
+json_t *pgresult_to_json(PGresult *res, bool canBeObject);
 #endif

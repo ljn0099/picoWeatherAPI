@@ -9,7 +9,7 @@
 #include <string.h>
 
 apiError_t users_list(const char *userId, const struct AuthData *authData, json_t **users) {
-    if (!authData->sessionToken || !users)
+    if (!authData || !authData->sessionToken || !users)
         return API_AUTH_ERROR;
 
     PGconn *conn = get_conn();
@@ -43,7 +43,7 @@ apiError_t users_list(const char *userId, const struct AuthData *authData, json_
         return API_NOT_FOUND;
     }
 
-    *users = pgresult_to_json(res);
+    *users = pgresult_to_json(res, false);
     if (!*users) {
         PQclear(res);
         release_conn(conn);
@@ -60,6 +60,9 @@ apiError_t users_list(const char *userId, const struct AuthData *authData, json_
 apiError_t users_create(const char *username, const char *email, const char *password,
                         json_t **user) {
     if (!username || !email || !password)
+        return API_INVALID_PARAMS;
+
+    if (!validate_name(username))
         return API_INVALID_PARAMS;
 
     char hashedPassword[crypto_pwhash_STRBYTES];
@@ -110,7 +113,7 @@ apiError_t users_create(const char *username, const char *email, const char *pas
         return API_NOT_FOUND;
     }
 
-    *user = pgresult_to_json(res);
+    *user = pgresult_to_json(res, true);
     if (!*user) {
         PQclear(res);
         release_conn(conn);
@@ -125,7 +128,7 @@ apiError_t users_create(const char *username, const char *email, const char *pas
 }
 
 apiError_t users_delete(const char *userId, const struct AuthData *authData) {
-    if (!authData->sessionToken)
+    if (!authData || !authData->sessionToken)
         return API_AUTH_ERROR;
 
     PGconn *conn = get_conn();
@@ -222,7 +225,7 @@ apiError_t sessions_create(const char *userId, const struct AuthData *authData,
         return API_NOT_FOUND;
     }
 
-    *session = pgresult_to_json(res);
+    *session = pgresult_to_json(res, true);
     if (!*session) {
         PQclear(res);
         release_conn(conn);
@@ -238,7 +241,7 @@ apiError_t sessions_create(const char *userId, const struct AuthData *authData,
 
 apiError_t sessions_list(const char *userId, const char *sessionUUID,
                          const struct AuthData *authData, json_t **sessions) {
-    if (!authData->sessionToken || !userId)
+    if (!authData || !authData->sessionToken || !userId)
         return API_INVALID_PARAMS;
 
     PGconn *conn = get_conn();
@@ -275,7 +278,7 @@ apiError_t sessions_list(const char *userId, const char *sessionUUID,
         return API_NOT_FOUND;
     }
 
-    *sessions = pgresult_to_json(res);
+    *sessions = pgresult_to_json(res, false);
     if (!*sessions) {
         PQclear(res);
         release_conn(conn);
@@ -291,7 +294,7 @@ apiError_t sessions_list(const char *userId, const char *sessionUUID,
 
 apiError_t sessions_delete(const char *userId, const char *sessionUUID,
                            const struct AuthData *authData) {
-    if (!authData->sessionToken)
+    if (!authData || !authData->sessionToken)
         return API_AUTH_ERROR;
 
     PGconn *conn = get_conn();
@@ -317,6 +320,77 @@ apiError_t sessions_delete(const char *userId, const char *sessionUUID,
         PQclear(res);
         release_conn(conn);
         return API_DB_ERROR;
+    }
+
+    PQclear(res);
+
+    release_conn(conn);
+
+    return API_OK;
+}
+
+apiError_t stations_create(const char *name, double lon, double lat, double alt,
+                           const struct AuthData *authData, json_t **station) {
+    if (!authData || !authData->sessionToken || !name)
+        return API_AUTH_ERROR;
+
+    if (!validate_name(name))
+        return API_INVALID_PARAMS;
+
+    PGconn *conn = get_conn();
+    if (!conn)
+        return API_DB_ERROR;
+
+    char *userUUID = NULL;
+
+    if (!get_user_session_token(conn, &userUUID, authData->sessionToken)) {
+        release_conn(conn);
+        return API_AUTH_ERROR;
+    }
+
+    char location[256];
+    snprintf(location, sizeof(location), "SRID=4326;POINTZ(%f %f %f)", lon, lat, alt);
+
+    const char *paramValues[3] = {name, location, userUUID};
+
+    PGresult *res = PQexecParams(
+        conn,
+        "WITH new_station AS ("
+        "  INSERT INTO stations.stations (user_id, name, location)"
+        "  SELECT u.user_id, $1, ST_GeogFromText($2)"
+        "  FROM auth.users u"
+        "  WHERE u.uuid::text = $3"
+        "    AND (u.max_stations IS NULL OR (SELECT COUNT(*) "
+        "        FROM stations.stations s "
+        "        WHERE s.user_id = u.user_id AND s.deleted_at IS NULL) < u.max_stations)"
+        "  RETURNING uuid, name,"
+        "            ST_X(location::geometry) AS lon,"
+        "            ST_Y(location::geometry) AS lat,"
+        "            COALESCE(ST_Z(location::geometry), 0) AS alt"
+        ")"
+        "SELECT uuid, name, lon, lat, alt FROM new_station;",
+        3, NULL, paramValues, NULL, NULL, 0);
+
+    free(userUUID);
+
+    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        fprintf(stderr, "Error executing the query: %s", PQerrorMessage(conn));
+        PQclear(res);
+        release_conn(conn);
+        return API_DB_ERROR;
+    }
+
+    if (PQntuples(res) == 0) {
+        PQclear(res);
+        release_conn(conn);
+        return API_FORBIDDEN;
+    }
+
+    *station = pgresult_to_json(res, true);
+    if (!*station) {
+        PQclear(res);
+        release_conn(conn);
+        return API_JSON_ERROR;
     }
 
     PQclear(res);

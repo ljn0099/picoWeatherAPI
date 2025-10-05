@@ -69,6 +69,17 @@ void handle_sessions(struct HandlerContext *handlerContext, const char *userId,
     }
 }
 
+void handle_stations(struct HandlerContext *handlerContext, const char *stationId) {
+    if (strcmp(handlerContext->method, "GET") == 0) {
+        handlerContext->responseData->httpStatus = MHD_HTTP_OK;
+        // handle_stations_list(handlerContext, stationId);
+    }
+    else if (strcmp(handlerContext->method, "POST") == 0) {
+        handlerContext->responseData->httpStatus = MHD_HTTP_CREATED;
+        handle_stations_create(handlerContext);
+    }
+}
+
 void handle_api_key(struct HandlerContext *handlerContext, const char *userId,
                     const char *apiKeyUUID) {
     DEBUG_PRINTF("UserId: %s, apiKeyUUID: %s, method: %s\n", userId, apiKeyUUID,
@@ -208,3 +219,45 @@ void handle_sessions_delete(struct HandlerContext *handlerContext, const char *u
         return;
     }
 }
+
+void handle_stations_create(struct HandlerContext *handlerContext) {
+    apiError_t errorCode;
+
+    if (!handlerContext->requestData->postData || handlerContext->requestData->postDataSize <= 0) {
+        errorCode = API_INVALID_PARAMS;
+        handlerContext->responseData->httpStatus =
+            apiError_to_http(errorCode, &handlerContext->responseData->data);
+        return;
+    }
+
+    json_t *root = json_loadb(handlerContext->requestData->postData,
+                              handlerContext->requestData->postDataSize, 0, NULL);
+
+    if (!root || !json_is_object(root)) {
+        errorCode = API_INVALID_PARAMS;
+        handlerContext->responseData->httpStatus =
+            apiError_to_http(errorCode, &handlerContext->responseData->data);
+        return;
+    }
+
+    const char *name = json_string_value(json_object_get(root, "name"));
+    const double lat = json_real_value(json_object_get(root, "lat"));
+    const double lon = json_real_value(json_object_get(root, "lon"));
+    const double alt = json_real_value(json_object_get(root, "altitude"));
+
+    json_t *json = NULL;
+
+    errorCode = stations_create(name, lon, lat, alt, handlerContext->authData, &json);
+
+    json_decref(root);
+
+    if (errorCode != API_OK) {
+        handlerContext->responseData->httpStatus =
+            apiError_to_http(errorCode, &handlerContext->responseData->data);
+        return;
+    }
+
+    handlerContext->responseData->data = json_dumps(json, JSON_INDENT(2));
+    json_decref(json);
+}
+
