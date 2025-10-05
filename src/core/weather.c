@@ -236,8 +236,8 @@ apiError_t sessions_create(const char *userId, const struct AuthData *authData,
     return API_OK;
 }
 
-apiError_t sessions_list(const char *userId, const char *sessionUUID, const struct AuthData *authData, 
-                         json_t **sessions) {
+apiError_t sessions_list(const char *userId, const char *sessionUUID,
+                         const struct AuthData *authData, json_t **sessions) {
     if (!authData->sessionToken || !userId)
         return API_INVALID_PARAMS;
 
@@ -280,6 +280,43 @@ apiError_t sessions_list(const char *userId, const char *sessionUUID, const stru
         PQclear(res);
         release_conn(conn);
         return API_JSON_ERROR;
+    }
+
+    PQclear(res);
+
+    release_conn(conn);
+
+    return API_OK;
+}
+
+apiError_t sessions_delete(const char *userId, const char *sessionUUID,
+                           const struct AuthData *authData) {
+    if (!authData->sessionToken)
+        return API_AUTH_ERROR;
+
+    PGconn *conn = get_conn();
+    if (!conn)
+        return API_DB_ERROR;
+
+    if (!validate_session_token(conn, userId, authData->sessionToken)) {
+        release_conn(conn);
+        return API_AUTH_ERROR;
+    }
+
+    const char *paramValues[1] = {sessionUUID};
+
+    PGresult *res = PQexecParams(conn,
+                                 "UPDATE auth.user_sessions "
+                                 "SET revoked_at = now() "
+                                 "WHERE (uuid::text = $1);",
+                                 1, // number of parameters
+                                 NULL, paramValues, NULL, NULL, 0);
+
+    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+        fprintf(stderr, "Error executing the query: %s", PQerrorMessage(conn));
+        PQclear(res);
+        release_conn(conn);
+        return API_DB_ERROR;
     }
 
     PQclear(res);

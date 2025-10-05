@@ -63,6 +63,10 @@ void handle_sessions(struct HandlerContext *handlerContext, const char *userId,
         handlerContext->responseData->httpStatus = MHD_HTTP_CREATED;
         handle_sessions_create(handlerContext, userId);
     }
+    else if (strcmp(handlerContext->method, "DELETE") == 0) {
+        handlerContext->responseData->httpStatus = MHD_HTTP_NO_CONTENT;
+        handle_sessions_delete(handlerContext, userId, sessionUUID);
+    }
 }
 
 void handle_api_key(struct HandlerContext *handlerContext, const char *userId,
@@ -193,4 +197,14 @@ void handle_sessions_list(struct HandlerContext *handlerContext, const char *use
     handlerContext->responseData->data = json_dumps(json, JSON_INDENT(2));
 
     json_decref(json);
+}
+
+void handle_sessions_delete(struct HandlerContext *handlerContext, const char *userId, const char *sessionUUID) {
+    apiError_t code = sessions_delete(userId, sessionUUID, handlerContext->authData);
+
+    if (code != API_OK) {
+        handlerContext->responseData->httpStatus =
+            apiError_to_http(code, &handlerContext->responseData->data);
+        return;
+    }
 }

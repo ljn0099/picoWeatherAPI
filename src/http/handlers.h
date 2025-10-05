@@ -22,4 +22,6 @@ void handle_sessions_create(struct HandlerContext *handlerContext, const char *u
 
 void handle_sessions_list(struct HandlerContext *handlerContext, const char *userId, const char *sessionUUID);
 
+void handle_sessions_delete(struct HandlerContext *handlerContext, const char *userId, const char *sessionUUID);
+
 #endif
