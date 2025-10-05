@@ -399,3 +399,52 @@ apiError_t stations_create(const char *name, double lon, double lat, double alt,
 
     return API_OK;
 }
+
+apiError_t stations_list(const char *stationId, json_t **stations) {
+    if (!stations)
+        return API_INVALID_PARAMS;
+
+    PGconn *conn = get_conn();
+    if (!conn)
+        return API_DB_ERROR;
+
+    const char *paramValues[1] = {stationId};
+
+    PGresult *res = PQexecParams(conn,
+                                 "SELECT "
+                                 "uuid, "
+                                 "name, "
+                                 "ST_X(location::geometry) AS lon, "
+                                 "ST_Y(location::geometry) AS lat, "
+                                 "COALESCE(ST_Z(location::geometry), 0) AS alt "
+                                 "FROM stations.stations "
+                                 "WHERE deleted_at IS NULL "
+                                 "AND ($1::text IS NULL OR uuid::text = $1 OR name = $1);",
+                                 1, NULL, paramValues, NULL, NULL, 0);
+
+    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        fprintf(stderr, "Error executing the query: %s", PQerrorMessage(conn));
+        PQclear(res);
+        release_conn(conn);
+        return API_DB_ERROR;
+    }
+
+    if (PQntuples(res) == 0) {
+        PQclear(res);
+        release_conn(conn);
+        return API_FORBIDDEN;
+    }
+
+    *stations = pgresult_to_json(res, true);
+    if (!*stations) {
+        PQclear(res);
+        release_conn(conn);
+        return API_JSON_ERROR;
+    }
+
+    PQclear(res);
+
+    release_conn(conn);
+
+    return API_OK;
+}

@@ -28,4 +28,6 @@ void handle_sessions_delete(struct HandlerContext *handlerContext, const char *u
 
 void handle_stations_create(struct HandlerContext *handlerContext);
 
+void handle_stations_list(struct HandlerContext *handlerContext, const char *stationId);
+
 #endif

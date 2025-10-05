@@ -34,4 +34,6 @@ apiError_t sessions_delete(const char *userId, const char *sessionUUID,
 
 apiError_t stations_create(const char *name, double lon, double lat, double alt,
                            const struct AuthData *authData, json_t **station);
+
+apiError_t stations_list(const char *stationId, json_t **stations);
 #endif

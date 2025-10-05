@@ -72,7 +72,7 @@ void handle_sessions(struct HandlerContext *handlerContext, const char *userId,
 void handle_stations(struct HandlerContext *handlerContext, const char *stationId) {
     if (strcmp(handlerContext->method, "GET") == 0) {
         handlerContext->responseData->httpStatus = MHD_HTTP_OK;
-        // handle_stations_list(handlerContext, stationId);
+        handle_stations_list(handlerContext, stationId);
     }
     else if (strcmp(handlerContext->method, "POST") == 0) {
         handlerContext->responseData->httpStatus = MHD_HTTP_CREATED;
@@ -261,3 +261,17 @@ void handle_stations_create(struct HandlerContext *handlerContext) {
     json_decref(json);
 }
 
+void handle_stations_list(struct HandlerContext *handlerContext, const char *stationId) {
+    json_t *json = NULL;
+    apiError_t code = stations_list(stationId, &json);
+
+    if (code != API_OK) {
+        handlerContext->responseData->httpStatus =
+            apiError_to_http(code, &handlerContext->responseData->data);
+        return;
+    }
+
+    handlerContext->responseData->data = json_dumps(json, JSON_INDENT(2));
+
+    json_decref(json);
+}
