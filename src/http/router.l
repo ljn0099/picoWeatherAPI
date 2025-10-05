@@ -7,6 +7,7 @@
 
 #define USERS_PREFIX_LEN (sizeof("/users/") - 1)
 #define SESSIONS_PREFIX_LEN (sizeof("/sessions/") - 1)
+#define STATIONS_PREFIX_LEN (sizeof("/stations/") - 1)
 
 %}
 
@@ -115,11 +116,8 @@
 }
 
 "/stations/"[^/]+ {
-    char *start = yytext + USERS_PREFIX_LEN;  // after '/stations/'
-    char *slash = strchr(start, '/');  // find the '/'
-    *slash = '\0';
+    char *stationId = yytext + STATIONS_PREFIX_LEN;
 
-    char *stationId = start;
     // Validation
     if (!validate_name(stationId) && !validate_uuid(stationId)) {
         DEBUG_PRINTF("Invalid stationId: %s\n", stationId);
