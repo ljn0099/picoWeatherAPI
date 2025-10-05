@@ -43,7 +43,11 @@ apiError_t users_list(const char *userId, const struct AuthData *authData, json_
         return API_NOT_FOUND;
     }
 
-    *users = pgresult_to_json(res, false);
+    if (!userId)
+        *users = pgresult_to_json(res, false);
+    else
+        *users = pgresult_to_json(res, true);
+
     if (!*users) {
         PQclear(res);
         release_conn(conn);
@@ -278,7 +282,11 @@ apiError_t sessions_list(const char *userId, const char *sessionUUID,
         return API_NOT_FOUND;
     }
 
-    *sessions = pgresult_to_json(res, false);
+    if (!sessionUUID)
+        *sessions = pgresult_to_json(res, false);
+    else
+        *sessions = pgresult_to_json(res, true);
+
     if (!*sessions) {
         PQclear(res);
         release_conn(conn);
@@ -435,7 +443,11 @@ apiError_t stations_list(const char *stationId, json_t **stations) {
         return API_FORBIDDEN;
     }
 
-    *stations = pgresult_to_json(res, true);
+    if (!stationId)
+        *stations = pgresult_to_json(res, false);
+    else
+        *stations = pgresult_to_json(res, true);
+
     if (!*stations) {
         PQclear(res);
         release_conn(conn);
