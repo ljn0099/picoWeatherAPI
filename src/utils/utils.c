@@ -1,3 +1,4 @@
+#define _XOPEN_SOURCE 700
 #include "utils.h"
 #include <ctype.h>
 #include <jansson.h>
@@ -5,6 +6,7 @@
 #include <sodium.h>
 #include <stdbool.h>
 #include <string.h>
+#include <time.h>
 
 bool validate_name(const char *str) {
     int len = 0;
@@ -171,11 +173,12 @@ bool get_user_session_token(PGconn *conn, char **userId, const char *sessionToke
 
     const char *paramValues[1] = {recievedTokenHashB64};
 
-    PGresult *res = PQexecParams(conn, "SELECT u.uuid AS user_uuid "
-                                       "FROM auth.user_sessions s "
-                                       "JOIN auth.users u ON s.user_id = u.user_id "
-                                       "WHERE s.session_token = $1",
-                                       1, NULL, paramValues, NULL, NULL, 0);
+    PGresult *res = PQexecParams(conn,
+                                 "SELECT u.uuid AS user_uuid "
+                                 "FROM auth.user_sessions s "
+                                 "JOIN auth.users u ON s.user_id = u.user_id "
+                                 "WHERE s.session_token = $1",
+                                 1, NULL, paramValues, NULL, NULL, 0);
 
     if (PQresultStatus(res) != PGRES_TUPLES_OK) {
         fprintf(stderr, "Error executing query: %s\n", PQerrorMessage(conn));
@@ -299,4 +302,49 @@ json_t *pgresult_to_json(PGresult *res, bool canBeObject) {
     }
 
     return jsonArray;
+}
+
+bool validate_timestamp(const char *timestamp) {
+    if (!timestamp)
+        return false;
+
+    struct tm tm;
+    const char *result = strptime(timestamp, "%Y-%m-%d %H:%M:%S", &tm);
+    if (result == NULL || *result != '\0')
+        return false; // Invalid format
+
+    return true;
+}
+
+bool validate_email(const char *email) {
+    if (email == NULL) return false;
+
+    const char *at = strchr(email, '@');
+    if (!at) return false;                     // Must contain '@'
+    if (at == email) return false;             // Cannot start with '@'
+
+    const char *dot = strrchr(at, '.');
+    if (!dot) return false;                    // Must contain at least one '.'
+    if (dot < at + 2) return false;           // Must have at least one character between '@' and '.'
+    if (*(dot + 1) == '\0') return false;     // Cannot end with '.'
+
+    // Check allowed characters before '@'
+    for (const char *p = email; p < at; p++) {
+        if (!(isalnum(*p) || *p == '.' || *p == '_' || *p == '-' || *p == '+'))
+            return false;
+    }
+
+    // Check allowed characters between '@' and last '.'
+    for (const char *p = at + 1; *p && p < dot; p++) {
+        if (!(isalnum(*p) || *p == '.' || *p == '-'))
+            return false;
+    }
+
+    // Check characters after the last '.' (TLD)
+    for (const char *p = dot + 1; *p; p++) {
+        if (!isalpha(*p))
+            return false;                     // Only letters allowed in TLD
+    }
+
+    return true;
 }

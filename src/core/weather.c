@@ -69,6 +69,9 @@ apiError_t users_create(const char *username, const char *email, const char *pas
     if (!validate_name(username))
         return API_INVALID_PARAMS;
 
+    if (!validate_email(email))
+        return API_INVALID_PARAMS;
+
     char hashedPassword[crypto_pwhash_STRBYTES];
 
     if (crypto_pwhash_str(hashedPassword, password, strlen(password),

@@ -34,5 +34,9 @@ void generateSessionToken(char *tokenB64, size_t tokenB64Len,
 
 bool get_user_session_token(PGconn *conn, char **userId, const char *sessionToken);
 
+bool validate_timestamp(const char *timestamp);
+
+bool validate_email(const char *email);
+
 json_t *pgresult_to_json(PGresult *res, bool canBeObject);
 #endif
