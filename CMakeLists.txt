@@ -28,5 +28,7 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(MHD REQUIRED libmicrohttpd)
 pkg_check_modules(JANSSON REQUIRED jansson)
 pkg_check_modules(SODIUM REQUIRED libsodium)
+pkg_check_modules(ICUUC REQUIRED icu-uc)
+pkg_check_modules(ICUIN REQUIRED icu-io)
 
 add_subdirectory(src)

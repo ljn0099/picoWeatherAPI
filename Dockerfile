@@ -9,7 +9,9 @@ RUN apk add --no-cache \
     libmicrohttpd-dev \
     jansson-dev \
     libsodium-dev \
-    flex
+    flex \
+    icu-data-full \
+    icu-dev
 
 WORKDIR /api
 COPY src ./src
@@ -24,7 +26,9 @@ RUN apk add --no-cache \
     libpq \
     libmicrohttpd \
     jansson \
-    libsodium
+    libsodium \
+    icu-data-full \
+    icu-libs
 
 RUN addgroup -S apigroup && adduser -S apiuser -G apigroup
 

@@ -463,3 +463,66 @@ apiError_t stations_list(const char *stationId, json_t **stations) {
 
     return API_OK;
 }
+
+apiError_t weather_data_list(int fields, const char *granularityStr, const char *stationId,
+                             const char *timezone, const char *startTime, const char *endTime,
+                             json_t **weatherData) {
+    if (!timezone || !startTime || !endTime || !weatherData || !granularityStr)
+        return API_INVALID_PARAMS;
+
+    PGconn *conn = get_conn();
+    if (!conn)
+        return API_DB_ERROR;
+
+    const char *paramTz[1] = {timezone};
+    PGresult *res = NULL;
+
+    res = PQexecParams(conn, "SET TIME ZONE $1;", 1, NULL, paramTz, NULL, NULL, 0);
+
+    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+        fprintf(stderr, "Error executing the query: %s", PQerrorMessage(conn));
+        PQclear(res);
+        release_conn(conn);
+        return API_DB_ERROR;
+    }
+
+    char *query;
+    granularity_t granularity = string_to_granularity(granularityStr);
+
+    // Cannot use static data
+    if (!same_timezone_offset_during_range(startTime, endTime, timezone, DEFAULT_TIMEZONE) &&
+        (granularity != GRANULARITY_DATA && granularity != GRANULARITY_HOUR)) {
+        query = build_generic_weather_query(fields);
+    }
+    else {
+        query = build_static_query(fields, granularity);
+    }
+
+    if (!query) {
+        release_conn(conn);
+        return API_MEMORY_ERROR;
+    }
+
+    const char *paramValues[4] = {stationId, startTime, endTime, granularityStr};
+    res = PQexecParams(conn, query, 4, NULL, paramValues, NULL, NULL, 0);
+
+    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        fprintf(stderr, "Error executing the query: %s", PQerrorMessage(conn));
+        PQclear(res);
+        release_conn(conn);
+        return API_DB_ERROR;
+    }
+
+    if (PQntuples(res) == 0) {
+        PQclear(res);
+        release_conn(conn);
+        return API_FORBIDDEN;
+    }
+
+    *weatherData = pgresult_to_json(res, false);
+
+    PQclear(res);
+    release_conn(conn);
+
+    return API_OK;
+}
