@@ -52,4 +52,6 @@ char *build_static_query(int fields, granularity_t granularity);
 
 bool same_timezone_offset_during_range(const char *startStr, const char *endStr, const char *tz1,
                                        const char *tz2);
+
+int string_to_field(const char *fieldStr);
 #endif

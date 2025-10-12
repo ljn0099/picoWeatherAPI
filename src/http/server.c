@@ -1,3 +1,4 @@
+#include "../core/flags.h"
 #include "../utils/utils.h"
 #include "handlers.h"
 #include "router.h"
@@ -56,6 +57,45 @@ bool method_accepts_body(const char *method) {
         return true;
     else
         return false;
+}
+
+static enum MHD_Result process_param(void *cls, enum MHD_ValueKind kind, const char *key,
+                                     const char *value) {
+    struct QueryData *queryData = cls;
+    (void)kind;
+    DEBUG_PRINTF("Processing: %s = %s\n", key, value);
+
+    if (strcmp(key, "start_time") == 0) {
+        queryData->startTime = strdup(value);
+    }
+    else if (strcmp(key, "end_time") == 0) {
+        queryData->endTime = strdup(value);
+    }
+    else if (strcmp(key, "timezone") == 0) {
+        queryData->timezone = strdup(value);
+    }
+    else if (strcmp(key, "granularity") == 0) {
+        queryData->granularity = strdup(value);
+    }
+    else if (strcmp(key, "fields") == 0) {
+        char tmp[256];
+        strncpy(tmp, value, sizeof(tmp) - 1);
+        tmp[sizeof(tmp) - 1] = '\0';
+
+        char *token = strtok(tmp, ",");
+        queryData->fields = 0;
+        while (token) {
+            int field = string_to_field(token);
+            if (field >= 0) {
+                DEBUG_PRINTF("Field: %s\n", token);
+                queryData->fields |= field;
+            }
+
+            token = strtok(NULL, ",");
+        }
+    }
+
+    return MHD_YES;
 }
 
 static enum MHD_Result handle_request(void *cls, struct MHD_Connection *connection, const char *url,
@@ -145,12 +185,17 @@ static enum MHD_Result handle_request(void *cls, struct MHD_Connection *connecti
 
     DEBUG_PRINTF("Cliente IP: %s, User-Agent: %s\n", authData.clientIp, authData.userAgent);
 
+    struct QueryData queryData = {NULL, NULL, NULL, GRANULARITY_DATA, -1};
+
+    MHD_get_connection_values(connection, MHD_GET_ARGUMENT_KIND, process_param, &queryData);
+
     // ---- Endpoint handling -----
     struct HandlerContext handlerContext;
     handlerContext.method = method;
     handlerContext.responseData = &responseData;
     handlerContext.authData = &authData;
     handlerContext.requestData = requestData;
+    handlerContext.queryData = &queryData;
 
     // Init scanner with the extra context
     yyscan_t scanner;
@@ -175,6 +220,18 @@ static enum MHD_Result handle_request(void *cls, struct MHD_Connection *connecti
     if (!responseData.data) {
         responseData.data = strdup("");
     }
+
+    if (queryData.startTime)
+        free(queryData.startTime);
+
+    if (queryData.endTime)
+        free(queryData.endTime);
+
+    if (queryData.timezone)
+        free(queryData.timezone);
+
+    if (queryData.granularity)
+        free(queryData.granularity);
 
     // Create the response and say MHD to free the responseData.data on finish
     response = MHD_create_response_from_buffer(strlen(responseData.data), responseData.data,

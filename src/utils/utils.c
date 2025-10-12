@@ -324,7 +324,7 @@ bool validate_timestamp(const char *timestamp) {
         return false;
 
     struct tm tm;
-    const char *result = strptime(timestamp, "%Y-%m-%d %H:%M:%S", &tm);
+    const char *result = strptime(timestamp, "%Y-%m-%dT%H:%M:%S", &tm);
     if (result == NULL || *result != '\0')
         return false; // Invalid format
 
@@ -390,7 +390,7 @@ bool append_to_buffer(char **buf_ptr, size_t *remaining, const char *fmt, ...) {
 char *build_generic_weather_query(int fields) {
     const char *queryBase = "WITH params AS (\n"
                             "    SELECT\n"
-                            "        $1 AS station_id,\n"
+                            "        (SELECT station_id FROM stations.stations WHERE name = $1 OR uuid::text = $1) AS station_id,\n"
                             "        $2::timestamp AS start_ts,\n"
                             "        $3::timestamp AS end_ts,\n"
                             "        $4::text AS granularity\n"
@@ -524,29 +524,29 @@ char *build_static_query(int fields, granularity_t granularity) {
 
     if (granularity == GRANULARITY_DATA) {
         queryEnd = " FROM weather.weather_data\n"
-                   " WHERE station_id = $1\n"
-                   "   AND time_range && tstzrange($2, $3)\n"
+                   "WHERE station_id = (SELECT station_id FROM stations.stations WHERE name = $1 OR uuid::text = $1)\n"
+                   "    AND time_range && tstzrange($2, $3)\n"
                    "ORDER BY lower(time_range);";
     }
     else if (granularity == GRANULARITY_HOUR)
         queryEnd = " FROM weather.weather_hourly_summary\n"
-                   " WHERE station_id = $1\n"
-                   "   AND time_range && tstzrange($2, $3)\n"
+                   "WHERE station_id = (SELECT station_id FROM stations.stations WHERE name = $1 OR uuid::text = $1)\n"
+                   "    AND time_range && tstzrange($2, $3)\n"
                    "ORDER BY lower(time_range);";
     else if (granularity == GRANULARITY_DAY)
         queryEnd = " FROM weather.weather_daily_summary\n"
-                   " WHERE station_id = $1\n"
-                   "   AND time_range && tstzrange($2, $3)\n"
+                   "WHERE station_id = (SELECT station_id FROM stations.stations WHERE name = $1 OR uuid::text = $1)\n"
+                   "    AND time_range && tstzrange($2, $3)\n"
                    "ORDER BY lower(time_range);";
     else if (granularity == GRANULARITY_MONTH)
         queryEnd = " FROM weather.weather_monthly_summary\n"
-                   " WHERE station_id = $1\n"
-                   "   AND time_range && tstzrange($2, $3)\n"
+                   "WHERE station_id = (SELECT station_id FROM stations.stations WHERE name = $1 OR uuid::text = $1)\n"
+                   "    AND time_range && tstzrange($2, $3)\n"
                    "ORDER BY lower(time_range);";
     else if (granularity == GRANULARITY_YEAR)
         queryEnd = " FROM weather.weather_yearly_summary\n"
-                   " WHERE station_id = $1\n"
-                   "   AND time_range && tstzrange($2, $3)\n"
+                   "WHERE station_id = (SELECT station_id FROM stations.stations WHERE name = $1 OR uuid::text = $1)\n"
+                   "    AND time_range && tstzrange($2, $3)\n"
                    "ORDER BY lower(time_range);";
     else
         queryEnd = NULL;
@@ -642,18 +642,91 @@ granularity_t string_to_granularity(const char *granularityStr) {
     if (!granularityStr)
         return GRANULARITY_HOUR;
 
-    if (strcmp(granularityStr, "raw"))
+    if (strcmp(granularityStr, "raw") == 0)
         return GRANULARITY_DATA;
-    else if (strcmp(granularityStr, "hour"))
+    else if (strcmp(granularityStr, "hour") == 0)
         return GRANULARITY_HOUR;
-    else if (strcmp(granularityStr, "day"))
+    else if (strcmp(granularityStr, "day") == 0)
         return GRANULARITY_DAY;
-    else if (strcmp(granularityStr, "month"))
+    else if (strcmp(granularityStr, "month") == 0)
         return GRANULARITY_MONTH;
-    else if (strcmp(granularityStr, "year"))
+    else if (strcmp(granularityStr, "year") == 0)
         return GRANULARITY_YEAR;
     else
         return GRANULARITY_HOUR;
+}
+
+int string_to_field(const char *fieldStr) {
+    if (strcmp(fieldStr, "temperature") == 0)
+        return DATA_TEMP;
+    else if (strcmp(fieldStr, "humidity") == 0)
+        return DATA_HUMIDITY;
+    else if (strcmp(fieldStr, "lux") == 0)
+        return DATA_LUX;
+    else if (strcmp(fieldStr, "uvi") == 0)
+        return DATA_UVI;
+    else if (strcmp(fieldStr, "wind_speed") == 0)
+        return DATA_WIND_SPEED;
+    else if (strcmp(fieldStr, "wind_direction") == 0)
+        return DATA_WIND_DIRECTION;
+    else if (strcmp(fieldStr, "gust_speed") == 0)
+        return DATA_GUST_SPEED;
+    else if (strcmp(fieldStr, "gust_direction") == 0)
+        return DATA_GUST_DIRECTION;
+    else if (strcmp(fieldStr, "rainfall") == 0)
+        return DATA_RAINFALL;
+    else if (strcmp(fieldStr, "solar_irradiance") == 0)
+        return DATA_SOLAR_IRRADIANCE;
+    else if (strcmp(fieldStr, "avg_temperature") == 0)
+        return SUMMARY_AVG_TEMPERATURE;
+    else if (strcmp(fieldStr, "max_temperature") == 0)
+        return SUMMARY_MAX_TEMPERATURE;
+    else if (strcmp(fieldStr, "min_temperature") == 0)
+        return SUMMARY_MIN_TEMPERATURE;
+    else if (strcmp(fieldStr, "stddev_temperature") == 0)
+        return SUMMARY_STDDEV_TEMPERATURE;
+    else if (strcmp(fieldStr, "avg_humidity") == 0)
+        return SUMMARY_AVG_HUMIDITY;
+    else if (strcmp(fieldStr, "max_humidity") == 0)
+        return SUMMARY_MAX_HUMIDITY;
+    else if (strcmp(fieldStr, "min_humidity") == 0)
+        return SUMMARY_MIN_HUMIDITY;
+    else if (strcmp(fieldStr, "stddev_humidity") == 0)
+        return SUMMARY_STDDEV_HUMIDITY;
+    else if (strcmp(fieldStr, "avg_pressure") == 0)
+        return SUMMARY_AVG_PRESSURE;
+    else if (strcmp(fieldStr, "max_pressure") == 0)
+        return SUMMARY_MAX_PRESSURE;
+    else if (strcmp(fieldStr, "min_pressure") == 0)
+        return SUMMARY_MIN_PRESSURE;
+    else if (strcmp(fieldStr, "sum_rainfall") == 0)
+        return SUMMARY_SUM_RAINFALL;
+    else if (strcmp(fieldStr, "stddev_rainfall") == 0)
+        return SUMMARY_STDDEV_RAINFALL;
+    else if (strcmp(fieldStr, "avg_wind_speed") == 0)
+        return SUMMARY_AVG_WIND_SPEED;
+    else if (strcmp(fieldStr, "avg_wind_direction") == 0)
+        return SUMMARY_AVG_WIND_DIRECTION;
+    else if (strcmp(fieldStr, "stddev_wind_speed") == 0)
+        return SUMMARY_STDDEV_WIND_SPEED;
+    else if (strcmp(fieldStr, "wind_run") == 0)
+        return SUMMARY_WIND_RUN;
+    else if (strcmp(fieldStr, "max_gust_speed") == 0)
+        return SUMMARY_MAX_GUST_SPEED;
+    else if (strcmp(fieldStr, "max_gust_direction") == 0)
+        return SUMMARY_MAX_GUST_DIRECTION;
+    else if (strcmp(fieldStr, "avg_lux") == 0)
+        return SUMMARY_AVG_LUX;
+    else if (strcmp(fieldStr, "max_lux") == 0)
+        return SUMMARY_MAX_LUX;
+    else if (strcmp(fieldStr, "avg_uvi") == 0)
+        return SUMMARY_AVG_UVI;
+    else if (strcmp(fieldStr, "max_uvi") == 0)
+        return SUMMARY_MAX_UVI;
+    else if (strcmp(fieldStr, "avg_solar_irradiance") == 0)
+        return SUMMARY_AVG_SOLAR_IRRADIANCE;
+    else
+        return -1;
 }
 
 bool same_timezone_offset_during_range(const char *startStr, const char *endStr, const char *tz1,
@@ -683,11 +756,11 @@ bool same_timezone_offset_during_range(const char *startStr, const char *endStr,
 
     // Parse start and end timestamps into year, month, day, hour, minute, second
     int year, month, day, hour, min, sec;
-    sscanf(startStr, "%d-%d-%d %d:%d:%d", &year, &month, &day, &hour, &min, &sec);
+    sscanf(startStr, "%d-%d-%dT%d:%d:%d", &year, &month, &day, &hour, &min, &sec);
     ucal_setDateTime(cal1, year, month - 1, day, hour, min, sec, &status);
     UDate start = ucal_getMillis(cal1, &status);
 
-    sscanf(endStr, "%d-%d-%d %d:%d:%d", &year, &month, &day, &hour, &min, &sec);
+    sscanf(endStr, "%d-%d-%dT%d:%d:%d", &year, &month, &day, &hour, &min, &sec);
     ucal_setDateTime(cal1, year, month - 1, day, hour, min, sec, &status);
     UDate end = ucal_getMillis(cal1, &status);
 

@@ -1,6 +1,7 @@
 #ifndef SERVER_H
 #define SERVER_H
 
+#include "../core/flags.h"
 #include <arpa/inet.h>
 #include <microhttpd.h>
 
@@ -9,6 +10,7 @@ struct HandlerContext {
     struct ResponseData *responseData;
     struct AuthData *authData;
     struct RequestData *requestData;
+    struct QueryData *queryData;
 };
 
 struct ResponseData {
@@ -29,6 +31,14 @@ struct RequestData {
     char *postData;
     size_t postDataSize;
     int postDataProcessed;
+};
+
+struct QueryData {
+    char *startTime;
+    char *endTime;
+    char *timezone;
+    char *granularity;
+    int fields;
 };
 
 int http_server_init(int port, int nThreads);

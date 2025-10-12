@@ -1,3 +1,4 @@
+#include "../core/flags.h"
 #include "../core/weather.h"
 #include "../utils/utils.h"
 #include "handlers.h"
@@ -129,7 +130,6 @@ void handle_users_create(struct HandlerContext *handlerContext) {
 
     errorCode = users_create(username, email, password, &json);
 
-
     json_decref(root);
 
     if (errorCode != API_OK) {
@@ -177,8 +177,8 @@ void handle_sessions_create(struct HandlerContext *handlerContext, const char *u
 
     json_t *json = NULL;
 
-    errorCode = sessions_create(userId, handlerContext->authData, password, tokenB64, sizeof(tokenB64),
-                                DEFAULT_SESSION_AGE, &json);
+    errorCode = sessions_create(userId, handlerContext->authData, password, tokenB64,
+                                sizeof(tokenB64), DEFAULT_SESSION_AGE, &json);
 
     handlerContext->responseData->sessionTokenMaxAge = DEFAULT_SESSION_AGE;
 
@@ -195,7 +195,8 @@ void handle_sessions_create(struct HandlerContext *handlerContext, const char *u
     json_decref(json);
 }
 
-void handle_sessions_list(struct HandlerContext *handlerContext, const char *userId, const char *sessionUUID) {
+void handle_sessions_list(struct HandlerContext *handlerContext, const char *userId,
+                          const char *sessionUUID) {
     json_t *json = NULL;
     apiError_t code = sessions_list(userId, sessionUUID, handlerContext->authData, &json);
 
@@ -210,7 +211,8 @@ void handle_sessions_list(struct HandlerContext *handlerContext, const char *use
     json_decref(json);
 }
 
-void handle_sessions_delete(struct HandlerContext *handlerContext, const char *userId, const char *sessionUUID) {
+void handle_sessions_delete(struct HandlerContext *handlerContext, const char *userId,
+                            const char *sessionUUID) {
     apiError_t code = sessions_delete(userId, sessionUUID, handlerContext->authData);
 
     if (code != API_OK) {
@@ -264,6 +266,24 @@ void handle_stations_create(struct HandlerContext *handlerContext) {
 void handle_stations_list(struct HandlerContext *handlerContext, const char *stationId) {
     json_t *json = NULL;
     apiError_t code = stations_list(stationId, &json);
+
+    if (code != API_OK) {
+        handlerContext->responseData->httpStatus =
+            apiError_to_http(code, &handlerContext->responseData->data);
+        return;
+    }
+
+    handlerContext->responseData->data = json_dumps(json, JSON_INDENT(2));
+
+    json_decref(json);
+}
+
+void handle_weather_data_list(struct HandlerContext *handlerContext, const char *stationId) {
+    json_t *json;
+    apiError_t code = weather_data_list(
+        handlerContext->queryData->fields, handlerContext->queryData->granularity, stationId,
+        handlerContext->queryData->timezone, handlerContext->queryData->startTime,
+        handlerContext->queryData->endTime, &json);
 
     if (code != API_OK) {
         handlerContext->responseData->httpStatus =

@@ -30,4 +30,6 @@ void handle_stations_create(struct HandlerContext *handlerContext);
 
 void handle_stations_list(struct HandlerContext *handlerContext, const char *stationId);
 
+void handle_weather_data_list(struct HandlerContext *handlerContext, const char *stationId);
+
 #endif

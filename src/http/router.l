@@ -8,6 +8,7 @@
 #define USERS_PREFIX_LEN (sizeof("/users/") - 1)
 #define SESSIONS_PREFIX_LEN (sizeof("/sessions/") - 1)
 #define STATIONS_PREFIX_LEN (sizeof("/stations/") - 1)
+#define DATA_PREFIX_LEN (sizeof("/data") - 1)
 
 %}
 
@@ -125,6 +126,23 @@
     }
 
     handle_stations(yyget_extra(yyscanner), stationId);
+}
+
+"/stations/"[^/]+"/data"([^/]+)? {
+    char *start = yytext + STATIONS_PREFIX_LEN;  // after '/stations/'
+    char *slash = strchr(start, '/');  // find the '/'
+    if (slash)
+        *slash = '\0';
+
+    char *stationId = start;
+
+    // Validation
+    // if (!validate_name(stationId) && !validate_uuid(stationId)) {
+    //     DEBUG_PRINTF("Invalid name: %s\n", stationId);
+    //     return 0;
+    // }
+
+    handle_weather_data_list(yyget_extra(yyscanner), stationId);
 }
 
 .|\n    { /* Ignore other */ }

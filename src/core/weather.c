@@ -470,14 +470,33 @@ apiError_t weather_data_list(int fields, const char *granularityStr, const char 
     if (!timezone || !startTime || !endTime || !weatherData || !granularityStr)
         return API_INVALID_PARAMS;
 
+    if (fields < 0)
+        return API_INVALID_PARAMS;
+
     PGconn *conn = get_conn();
     if (!conn)
         return API_DB_ERROR;
 
-    const char *paramTz[1] = {timezone};
     PGresult *res = NULL;
 
-    res = PQexecParams(conn, "SET TIME ZONE $1;", 1, NULL, paramTz, NULL, NULL, 0);
+    char quoteQuery[256];
+    snprintf(quoteQuery, sizeof(quoteQuery), "SELECT quote_literal('%s');", timezone);
+
+    res = PQexec(conn, quoteQuery);
+    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        fprintf(stderr, "Error quoting literal: %s\n", PQerrorMessage(conn));
+        PQclear(res);
+        release_conn(conn);
+        return API_DB_ERROR;
+    }
+
+    char *escapedTz = PQgetvalue(res, 0, 0);
+
+    char queryTz[512];
+    snprintf(queryTz, sizeof(queryTz), "SET TIME ZONE %s;", escapedTz);
+
+    PQclear(res);
+    res = PQexec(conn, queryTz);
 
     if (PQresultStatus(res) != PGRES_COMMAND_OK) {
         fprintf(stderr, "Error executing the query: %s", PQerrorMessage(conn));
@@ -485,13 +504,16 @@ apiError_t weather_data_list(int fields, const char *granularityStr, const char 
         release_conn(conn);
         return API_DB_ERROR;
     }
+    PQclear(res);
 
     char *query;
     granularity_t granularity = string_to_granularity(granularityStr);
 
     // Cannot use static data
-    if (!same_timezone_offset_during_range(startTime, endTime, timezone, DEFAULT_TIMEZONE) &&
-        (granularity != GRANULARITY_DATA && granularity != GRANULARITY_HOUR)) {
+    bool sameTimezone =
+        same_timezone_offset_during_range(startTime, endTime, timezone, DEFAULT_TIMEZONE);
+
+    if (!sameTimezone && granularity != GRANULARITY_DATA) {
         query = build_generic_weather_query(fields);
     }
     else {
@@ -504,7 +526,12 @@ apiError_t weather_data_list(int fields, const char *granularityStr, const char 
     }
 
     const char *paramValues[4] = {stationId, startTime, endTime, granularityStr};
-    res = PQexecParams(conn, query, 4, NULL, paramValues, NULL, NULL, 0);
+    if (!sameTimezone && granularity != GRANULARITY_DATA)
+        res = PQexecParams(conn, query, 4, NULL, paramValues, NULL, NULL, 0);
+    else
+        res = PQexecParams(conn, query, 3, NULL, paramValues, NULL, NULL, 0);
+
+    free(query);
 
     if (PQresultStatus(res) != PGRES_TUPLES_OK) {
         fprintf(stderr, "Error executing the query: %s", PQerrorMessage(conn));
