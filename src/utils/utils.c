@@ -425,7 +425,6 @@ char *build_generic_weather_query(int fields) {
                             "    ) AS ts\n"
                             ")\n"
                             "SELECT "
-                            "d.station_id, "
                             "lower(d.time_range) AS period_start, "
                             "upper(d.time_range) AS period_end, "
                             "d.granularity, ";
