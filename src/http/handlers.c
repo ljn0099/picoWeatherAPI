@@ -279,6 +279,7 @@ void handle_stations_list(struct HandlerContext *handlerContext, const char *sta
 }
 
 void handle_weather_data_list(struct HandlerContext *handlerContext, const char *stationId) {
+    handlerContext->responseData->httpStatus = MHD_HTTP_OK;
     json_t *json;
     apiError_t code = weather_data_list(
         handlerContext->queryData->fields, handlerContext->queryData->granularity, stationId,
