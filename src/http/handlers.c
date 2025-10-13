@@ -83,8 +83,10 @@ void handle_stations(struct HandlerContext *handlerContext, const char *stationI
 
 void handle_api_key(struct HandlerContext *handlerContext, const char *userId,
                     const char *apiKeyUUID) {
-    DEBUG_PRINTF("UserId: %s, apiKeyUUID: %s, method: %s\n", userId, apiKeyUUID,
-                 handlerContext->method);
+    if (strcmp(handlerContext->method, "POST") == 0) {
+        handlerContext->responseData->httpStatus = MHD_HTTP_CREATED;
+        handle_api_key_create(handlerContext, userId);
+    }
 }
 
 void handle_users_list(struct HandlerContext *handlerContext, const char *userId) {
@@ -275,6 +277,46 @@ void handle_stations_list(struct HandlerContext *handlerContext, const char *sta
 
     handlerContext->responseData->data = json_dumps(json, JSON_INDENT(2));
 
+    json_decref(json);
+}
+
+void handle_api_key_create(struct HandlerContext *handlerContext, const char *userId) {
+    apiError_t errorCode;
+
+    if (!handlerContext->requestData->postData || handlerContext->requestData->postDataSize <= 0) {
+        errorCode = API_INVALID_PARAMS;
+        handlerContext->responseData->httpStatus =
+            apiError_to_http(errorCode, &handlerContext->responseData->data);
+        return;
+    }
+
+    json_t *root = json_loadb(handlerContext->requestData->postData,
+                              handlerContext->requestData->postDataSize, 0, NULL);
+
+    if (!root || !json_is_object(root)) {
+        errorCode = API_INVALID_PARAMS;
+        handlerContext->responseData->httpStatus =
+            apiError_to_http(errorCode, &handlerContext->responseData->data);
+        return;
+    }
+
+    const char *name = json_string_value(json_object_get(root, "name"));
+    const char *keyType = json_string_value(json_object_get(root, "api_key_type"));
+    const char *stationId = json_string_value(json_object_get(root, "station_id"));
+
+    json_t *json = NULL;
+
+    errorCode = api_key_create(name, keyType, stationId, userId, handlerContext->authData, &json);
+
+    json_decref(root);
+
+    if (errorCode != API_OK) {
+        handlerContext->responseData->httpStatus =
+            apiError_to_http(errorCode, &handlerContext->responseData->data);
+        return;
+    }
+
+    handlerContext->responseData->data = json_dumps(json, JSON_INDENT(2));
     json_decref(json);
 }
 

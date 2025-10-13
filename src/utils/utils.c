@@ -797,3 +797,14 @@ bool same_timezone_offset_during_range(const char *startStr, const char *endStr,
     ucal_close(cal2);
     return true;
 }
+
+apiKeyType_t string_to_key_type(const char *typeStr) {
+    if (strcmp(typeStr, "weather_upload") == 0)
+        return KEY_TYPE_WEATHER_UPLOAD;
+    else if (strcmp(typeStr, "stations_management") == 0)
+        return KEY_TYPE_STATIONS_MNG;
+    else if (strcmp(typeStr, "stations_control") == 0)
+        return KEY_TYPE_STATIONS_CONTROL;
+    else
+        return KEY_TYPE_INVALID;
+}

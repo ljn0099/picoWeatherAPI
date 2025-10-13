@@ -464,6 +464,79 @@ apiError_t stations_list(const char *stationId, json_t **stations) {
     return API_OK;
 }
 
+apiError_t api_key_create(const char *name, const char *keyType, const char *stationId,
+                          const char *userId, const struct AuthData *authData, json_t **key) {
+    if (!authData || !authData->sessionToken)
+        return API_AUTH_ERROR;
+
+    if (!validate_name(name) || !name || !keyType || !stationId)
+        return API_INVALID_PARAMS;
+
+    PGconn *conn = get_conn();
+    if (!conn)
+        return API_DB_ERROR;
+
+    if (!validate_session_token(conn, userId, authData->sessionToken))
+        return API_AUTH_ERROR;
+
+    char tokenB64[sodium_base64_ENCODED_LEN(KEY_ENTROPY, BASE64_VARIANT)];
+    char hashB64[sodium_base64_ENCODED_LEN(crypto_generichash_BYTES, BASE64_VARIANT)];
+
+    generateSessionToken(tokenB64, sizeof(tokenB64), hashB64, sizeof(hashB64));
+
+    const char *paramValues[6] = {userId, stationId, name, hashB64, keyType, tokenB64};
+
+    PGresult *res = PQexecParams(
+        conn,
+        "INSERT INTO auth.api_keys (user_id, name, api_key, api_key_type, station_id, expires_at) "
+        "SELECT "
+        "  u.user_id, "
+        "  $3, "
+        "  $4, "
+        "  $5, "
+        "  s.station_id, "
+        "  NULL "
+        "FROM auth.users u "
+        "JOIN stations.stations s ON s.user_id = u.user_id "
+        "WHERE (u.uuid::text = $1 OR u.username = $1) "
+        "  AND (s.uuid::text = $2 OR s.name = $2) "
+        "RETURNING "
+        "  uuid, "
+        "  name, "
+        "  api_key_type, "
+        "  created_at, "
+        "  expires_at, "
+        "  $2::text AS station_uuid, "
+        "  $6::text AS api_key;",
+        6, NULL, paramValues, NULL, NULL, 0);
+
+    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        fprintf(stderr, "Error executing the query: %s", PQerrorMessage(conn));
+        PQclear(res);
+        release_conn(conn);
+        return API_DB_ERROR;
+    }
+
+    if (PQntuples(res) == 0) {
+        PQclear(res);
+        release_conn(conn);
+        return API_NOT_FOUND;
+    }
+
+    *key = pgresult_to_json(res, true);
+    if (!*key) {
+        PQclear(res);
+        release_conn(conn);
+        return API_JSON_ERROR;
+    }
+
+    PQclear(res);
+
+    release_conn(conn);
+
+    return API_OK;
+}
+
 apiError_t weather_data_list(int fields, const char *granularityStr, const char *stationId,
                              const char *timezone, const char *startTime, const char *endTime,
                              json_t **weatherData) {

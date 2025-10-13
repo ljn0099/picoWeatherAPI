@@ -18,6 +18,12 @@ typedef enum {
     API_JSON_ERROR
 } apiError_t;
 
+typedef enum {
+    KEY_TYPE_WEATHER_UPLOAD = 0,
+    KEY_TYPE_STATIONS_MNG,
+    KEY_TYPE_STATIONS_CONTROL,
+    KEY_TYPE_INVALID
+} apiKeyType_t;
 
 apiError_t users_list(const char *userId, const struct AuthData *authData, json_t **users);
 
@@ -40,6 +46,9 @@ apiError_t stations_create(const char *name, double lon, double lat, double alt,
                            const struct AuthData *authData, json_t **station);
 
 apiError_t stations_list(const char *stationId, json_t **stations);
+
+apiError_t api_key_create(const char *name, const char *keyType, const char *stationId,
+                          const char *userId, const struct AuthData *authData, json_t **key);
 
 apiError_t weather_data_list(int fields, const char *granularityStr, const char *stationId,
                              const char *timezone, const char *startTime, const char *endTime,

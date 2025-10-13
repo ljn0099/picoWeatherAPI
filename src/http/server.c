@@ -237,6 +237,9 @@ static enum MHD_Result handle_request(void *cls, struct MHD_Connection *connecti
     response = MHD_create_response_from_buffer(strlen(responseData.data), responseData.data,
                                                MHD_RESPMEM_MUST_FREE);
     MHD_add_response_header(response, "Content-Type", "application/json");
+    if (strcmp(method, "GET") == 0) {
+        MHD_add_response_header(response, "Access-Control-Allow-Origin", "*");
+    }
 
     // Create cookie if exists
     if (responseData.sessionToken) {

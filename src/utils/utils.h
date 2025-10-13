@@ -54,4 +54,6 @@ bool same_timezone_offset_during_range(const char *startStr, const char *endStr,
                                        const char *tz2);
 
 int string_to_field(const char *fieldStr);
+
+apiKeyType_t string_to_key_type(const char *typeStr);
 #endif
