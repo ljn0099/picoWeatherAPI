@@ -32,6 +32,8 @@ bool validate_password(PGconn *conn, const char *userId, const char *password);
 
 bool validate_session_token(PGconn *conn, const char *userId, const char *sessionToken);
 
+bool validate_admin_session_token(PGconn *conn, const char *sessionToken);
+
 void generateSessionToken(char *tokenB64, size_t tokenB64Len, char *hashB64, size_t hashB64Len);
 
 bool get_user_session_token(PGconn *conn, char **userId, const char *sessionToken);

@@ -376,7 +376,7 @@ apiError_t stations_create(const char *name, double lon, double lat, double alt,
         "  SELECT u.user_id, $1, ST_GeogFromText($2)"
         "  FROM auth.users u"
         "  WHERE u.uuid::text = $3"
-        "    AND (u.max_stations IS NULL OR (SELECT COUNT(*) "
+        "    AND (u.max_stations = -1 OR (SELECT COUNT(*) "
         "        FROM stations.stations s "
         "        WHERE s.user_id = u.user_id AND s.deleted_at IS NULL) < u.max_stations)"
         "  RETURNING uuid, name,"
