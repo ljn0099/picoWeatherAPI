@@ -542,6 +542,73 @@ apiError_t api_key_create(const char *name, const char *keyType, const char *sta
     return API_OK;
 }
 
+apiError_t api_key_list(const char *userId, const char *keyId, const struct AuthData *authData,
+                        json_t **keys) {
+    if (!authData || !authData->sessionToken)
+        return API_AUTH_ERROR;
+
+    if (!userId)
+        return API_INVALID_PARAMS;
+
+    PGconn *conn = get_conn();
+    if (!conn)
+        return API_DB_ERROR;
+
+    if (!validate_session_token(conn, userId, authData->sessionToken))
+        return API_AUTH_ERROR;
+
+    const char *paramValues[2] = {userId, keyId};
+
+    PGresult *res = PQexecParams(
+        conn,
+        "SELECT"
+        "       k.uuid, "
+        "       k.name, "
+        "       k.api_key_type, "
+        "       s.name AS station_id, "
+        "       k.created_at,"
+        "       k.expires_at, "
+        "       k.revoked_at "
+        "FROM auth.api_keys k "
+        "JOIN auth.users u ON k.user_id = u.user_id "
+        "LEFT JOIN stations.stations s ON k.station_id = s.station_id "
+        "WHERE (k.expires_at IS NULL OR k.expires_at > NOW()) "
+        "  AND k.revoked_at IS NULL "
+        "  AND (u.uuid::text = $1::text OR u.username::text = $1::text) "
+        "  AND ($2::text IS NULL OR k.uuid::text = $2::text OR k.name::text = $2::text)",
+        2, NULL, paramValues, NULL, NULL, 0);
+
+    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        fprintf(stderr, "Error executing the query: %s", PQerrorMessage(conn));
+        PQclear(res);
+        release_conn(conn);
+        return API_DB_ERROR;
+    }
+
+    if (PQntuples(res) == 0) {
+        PQclear(res);
+        release_conn(conn);
+        return API_NOT_FOUND;
+    }
+
+    if (!keyId)
+        *keys = pgresult_to_json(res, false);
+    else
+        *keys = pgresult_to_json(res, true);
+
+    if (!*keys) {
+        PQclear(res);
+        release_conn(conn);
+        return API_JSON_ERROR;
+    }
+
+    PQclear(res);
+
+    release_conn(conn);
+
+    return API_OK;
+}
+
 apiError_t weather_data_list(int fields, const char *granularityStr, const char *stationId,
                              const char *timezone, const char *startTime, const char *endTime,
                              json_t **weatherData) {

@@ -8,8 +8,7 @@ void handle_sessions(struct HandlerContext *handlerContext, const char *userId,
 
 void handle_user(struct HandlerContext *handlerContext, const char *userId);
 
-void handle_api_key(struct HandlerContext *handlerContext, const char *userId,
-                    const char *keyId);
+void handle_api_key(struct HandlerContext *handlerContext, const char *userId, const char *keyId);
 
 void handle_stations(struct HandlerContext *handlerContext, const char *stationId);
 
@@ -34,5 +33,8 @@ void handle_stations_list(struct HandlerContext *handlerContext, const char *sta
 void handle_weather_data_list(struct HandlerContext *handlerContext, const char *stationId);
 
 void handle_api_key_create(struct HandlerContext *handlerContext, const char *userId);
+
+void handle_api_key_list(struct HandlerContext *handlerContext, const char *userId,
+                         const char *keyId);
 
 #endif

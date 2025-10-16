@@ -82,9 +82,12 @@ void handle_stations(struct HandlerContext *handlerContext, const char *stationI
     }
 }
 
-void handle_api_key(struct HandlerContext *handlerContext, const char *userId,
-                    const char *keyId) {
-    if (strcmp(handlerContext->method, "POST") == 0) {
+void handle_api_key(struct HandlerContext *handlerContext, const char *userId, const char *keyId) {
+    if (strcmp(handlerContext->method, "GET") == 0) {
+        handlerContext->responseData->httpStatus = MHD_HTTP_OK;
+        handle_api_key_list(handlerContext, userId, keyId);
+    }
+    else if (strcmp(handlerContext->method, "POST") == 0) {
         handlerContext->responseData->httpStatus = MHD_HTTP_CREATED;
         handle_api_key_create(handlerContext, userId);
     }
@@ -318,6 +321,23 @@ void handle_api_key_create(struct HandlerContext *handlerContext, const char *us
     }
 
     handlerContext->responseData->data = json_dumps(json, JSON_INDENT(2));
+    json_decref(json);
+}
+
+void handle_api_key_list(struct HandlerContext *handlerContext, const char *userId,
+                         const char *keyId) {
+    json_t *json = NULL;
+
+    apiError_t code = api_key_list(userId, keyId, handlerContext->authData, &json);
+
+    if (code != API_OK) {
+        handlerContext->responseData->httpStatus =
+            apiError_to_http(code, &handlerContext->responseData->data);
+        return;
+    }
+
+    handlerContext->responseData->data = json_dumps(json, JSON_INDENT(2));
+
     json_decref(json);
 }
 

@@ -51,6 +51,9 @@ apiError_t stations_list(const char *stationId, json_t **stations);
 apiError_t api_key_create(const char *name, const char *keyType, const char *stationId,
                           const char *userId, const struct AuthData *authData, json_t **key);
 
+apiError_t api_key_list(const char *userId, const char *keyId, const struct AuthData *authData,
+                        json_t **keys);
+
 apiError_t weather_data_list(int fields, const char *granularityStr, const char *stationId,
                              const char *timezone, const char *startTime, const char *endTime,
                              json_t **weatherData);
