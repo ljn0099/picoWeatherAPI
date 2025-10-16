@@ -1,8 +1,8 @@
 #define _XOPEN_SOURCE 700
-#include "utils.h"
 #include "../core/flags.h"
 #include "../core/weather.h"
 #include "postgres_ext.h"
+#include "utils.h"
 #include <ctype.h>
 #include <jansson.h>
 #include <libpq-fe.h>
@@ -173,6 +173,55 @@ bool validate_session_token(PGconn *conn, const char *userId, const char *sessio
         PQclear(res);
         return false;
     }
+}
+
+bool validate_admin_session_token(PGconn *conn, const char *sessionToken) {
+    if (!sessionToken)
+        return false;
+
+    unsigned char receivedToken[KEY_ENTROPY];
+    if (sodium_base642bin(receivedToken, sizeof(receivedToken), sessionToken, strlen(sessionToken),
+                          NULL, NULL, NULL, BASE64_VARIANT) != 0) {
+        return false;
+    }
+
+    unsigned char receivedTokenHash[crypto_generichash_BYTES];
+    crypto_generichash(receivedTokenHash, sizeof(receivedTokenHash), receivedToken,
+                       sizeof(receivedToken), NULL, 0);
+
+    // Convert hash to base64 for the query
+    char receivedTokenHashB64[sodium_base64_ENCODED_LEN(sizeof(receivedTokenHash), BASE64_VARIANT)];
+    sodium_bin2base64(receivedTokenHashB64, sizeof(receivedTokenHashB64), receivedTokenHash,
+                      sizeof(receivedTokenHash), BASE64_VARIANT);
+
+    PGresult *res;
+    const char *paramValues[1] = {receivedTokenHashB64};
+
+    res = PQexecParams(conn,
+                       "SELECT 1 "
+                       "FROM auth.user_sessions s "
+                       "JOIN auth.users u ON s.user_id = u.user_id "
+                       "WHERE s.session_token = $1 "
+                       "  AND s.expires_at > NOW() "
+                       "  AND s.revoked_at IS NULL "
+                       "  AND u.deleted_at IS NULL "
+                       "  AND u.is_admin = true",
+                       1,           // number of parameters
+                       NULL,        // param types
+                       paramValues, // param values
+                       NULL,        // param lengths
+                       NULL,        // param formats
+                       0);          // result format (0 = text)
+
+    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        fprintf(stderr, "Error executing the query: %s", PQerrorMessage(conn));
+        PQclear(res);
+        return false;
+    }
+
+    bool isAdmin = PQntuples(res) > 0;
+    PQclear(res);
+    return isAdmin;
 }
 
 bool get_user_session_token(PGconn *conn, char **userId, const char *sessionToken) {
