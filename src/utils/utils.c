@@ -1,16 +1,25 @@
 #define _XOPEN_SOURCE 700
-#include "../core/weather.h"
 #include "utils.h"
 #include <ctype.h>
 #include <jansson.h>
 #include <libpq-fe.h>
-#include <sodium.h>
+#include <sodium/crypto_generichash.h>
+#include <sodium/crypto_pwhash.h>
+#include <sodium/randombytes.h>
+#include <stdarg.h>
 #include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <unicode/putil.h>
 #include <unicode/ucal.h>
-#include <unicode/ustring.h>
+#include <unicode/umachine.h>
 #include <unicode/utypes.h>
+#include "../core/weather.h"
+#include "../core/flags.h"
+#include "postgres_ext.h"
 
 #define GENERIC_WEATHER_QUERY_SIZE 4096
 #define APPEND_QUERY_FIELD(FIELD_FLAG, SQL_EXPR)                                                   \

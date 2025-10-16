@@ -1,8 +1,10 @@
-#include "./http/server.h"
 #include <signal.h>
-#include <sodium.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sodium/core.h>
+#include <unistd.h>
+
+#include "./http/server.h"
 #include "database/database.h"
 
 static volatile int keepRuning = 1;

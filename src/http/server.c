@@ -1,14 +1,16 @@
-#include "../core/flags.h"
-#include "../utils/utils.h"
-#include "handlers.h"
-#include "router.h"
-#include "server.h"
 #include <arpa/inet.h>
 #include <microhttpd.h>
+#include <netinet/in.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/socket.h>
+#include "../utils/utils.h"
+#include "router.h"
+#include "server.h"
+
+struct MHD_Connection;
 
 static struct MHD_Daemon *httpDaemon = NULL;
 
@@ -188,7 +190,7 @@ static enum MHD_Result handle_request(void *cls, struct MHD_Connection *connecti
 
     DEBUG_PRINTF("Cliente IP: %s, User-Agent: %s\n", authData.clientIp, authData.userAgent);
 
-    struct QueryData queryData = {NULL, NULL, NULL, GRANULARITY_DATA, -1};
+    struct QueryData queryData = {NULL, NULL, NULL, NULL, -1};
 
     MHD_get_connection_values(connection, MHD_GET_ARGUMENT_KIND, process_param, &queryData);
 

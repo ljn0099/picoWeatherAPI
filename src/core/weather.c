@@ -1,11 +1,17 @@
-#include "../database/database.h"
-#include "../utils/utils.h"
-#include "weather.h"
+#include "../core/weather.h"
 #include <jansson.h>
 #include <libpq-fe.h>
+#include <sodium/crypto_generichash.h>
+#include <sodium/crypto_pwhash.h>
+#include <sodium/utils.h>
 #include <stdbool.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "../database/database.h"
+#include "../utils/utils.h"
+#include "../http/server.h"
+#include "flags.h"
 
 apiError_t users_list(const char *userId, const struct AuthData *authData, json_t **users) {
     if (!authData || !authData->sessionToken || !users)

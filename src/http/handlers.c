@@ -1,12 +1,13 @@
-#include "../core/flags.h"
-#include "../core/weather.h"
-#include "../utils/utils.h"
-#include "handlers.h"
-#include "server.h"
 #include <jansson.h>
 #include <microhttpd.h>
 #include <stdio.h>
 #include <string.h>
+#include <sodium/utils.h>
+
+#include "../core/weather.h"
+#include "../utils/utils.h"
+#include "handlers.h"
+#include "server.h"
 
 #define DEFAULT_SESSION_AGE 3600
 

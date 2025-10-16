@@ -1,9 +1,10 @@
 #ifndef WEATHER_H
 #define WEATHER_H
 
-#include "../http/server.h"
-#include "../core/flags.h"
 #include <jansson.h>
+#include <stddef.h>
+
+struct AuthData;
 
 #define DEFAULT_TIMEZONE "Europe/Madrid"
 

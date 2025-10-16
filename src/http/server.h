@@ -1,9 +1,8 @@
 #ifndef SERVER_H
 #define SERVER_H
 
-#include "../core/flags.h"
-#include <arpa/inet.h>
-#include <microhttpd.h>
+#include <netinet/in.h>
+#include <stddef.h>
 
 struct HandlerContext {
     const char *method;

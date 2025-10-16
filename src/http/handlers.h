@@ -1,7 +1,7 @@
 #ifndef HANDLERS_H
 #define HANDLERS_H
 
-#include "server.h"
+struct HandlerContext;
 
 void handle_sessions(struct HandlerContext *handlerContext, const char *userId,
                          const char *sessionUUID);

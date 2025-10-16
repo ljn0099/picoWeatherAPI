@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <stdio.h>
 
 typedef struct {
     PGconn *conn;
@@ -21,7 +22,7 @@ const char *DB_PASS;
 const char *DB_NAME;
 const char *DB_PORT;
 
-bool init_db_vars() {
+bool init_db_vars(void) {
     DB_HOST = getenv("DB_HOST");
     DB_USER = getenv("DB_USER");
     DB_PASS = getenv("DB_PASS");
@@ -59,7 +60,7 @@ bool init_db_vars() {
     return true;
 }
 
-PGconn *init_db_conn() {
+PGconn *init_db_conn(void) {
 
     PGconn *conn;
     conn = PQsetdbLogin(DB_HOST, DB_PORT,
@@ -76,7 +77,7 @@ PGconn *init_db_conn() {
     return conn;
 }
 
-bool init_pool() {
+bool init_pool(void) {
     // Reserve memory for the pool
     pool = malloc(sizeof(ConnWrapper) * maxConn);
     if (!pool) {
@@ -99,7 +100,7 @@ bool init_pool() {
     return true;
 }
 
-void free_pool() {
+void free_pool(void) {
     if (!pool)
         return;
 
@@ -114,7 +115,7 @@ void free_pool() {
     pthread_cond_destroy(&poolCond);
 }
 
-PGconn *get_conn() {
+PGconn *get_conn(void) {
     PGconn *ret = NULL;
 
     pthread_mutex_lock(&poolMutex);
