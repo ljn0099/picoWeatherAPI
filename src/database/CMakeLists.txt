@@ -3,13 +3,12 @@ add_library(weather_db
 )
 
 target_include_directories(weather_db
-    PRIVATE
+    PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${PostgreSQL_INCLUDE_DIRS}
 )
 
 target_link_libraries(weather_db
-    PRIVATE
+    PUBLIC
     ${PostgreSQL_LIBRARIES}
-    ${JANSSON_LIBRARIES}
 )

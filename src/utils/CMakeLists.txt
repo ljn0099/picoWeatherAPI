@@ -5,7 +5,6 @@ add_library(weather_utils
 target_include_directories(weather_utils
     PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
-    PRIVATE
     ${PostgreSQL_INCLUDE_DIRS}
     ${JANSSON_INCLUDE_DIRS}
     ${SODIUM_INCLUDE_DIRS}
@@ -14,7 +13,7 @@ target_include_directories(weather_utils
 )
 
 target_link_libraries(weather_utils
-    PRIVATE
+    PUBLIC
     ${PostgreSQL_LIBRARIES}
     ${JANSSON_LIBRARIES}
     ${SODIUM_LIBRARIES}

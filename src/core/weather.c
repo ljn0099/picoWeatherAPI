@@ -1,5 +1,4 @@
 #include "../database/database.h"
-#include "../http/server.h"
 #include "../utils/utils.h"
 #include "weather.h"
 #include <jansson.h>
