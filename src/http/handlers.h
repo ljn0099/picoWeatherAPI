@@ -9,7 +9,7 @@ void handle_sessions(struct HandlerContext *handlerContext, const char *userId,
 void handle_user(struct HandlerContext *handlerContext, const char *userId);
 
 void handle_api_key(struct HandlerContext *handlerContext, const char *userId,
-                    const char *apiKeyUUID);
+                    const char *keyId);
 
 void handle_stations(struct HandlerContext *handlerContext, const char *stationId);
 

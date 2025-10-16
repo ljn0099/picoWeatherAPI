@@ -83,7 +83,7 @@ void handle_stations(struct HandlerContext *handlerContext, const char *stationI
 }
 
 void handle_api_key(struct HandlerContext *handlerContext, const char *userId,
-                    const char *apiKeyUUID) {
+                    const char *keyId) {
     if (strcmp(handlerContext->method, "POST") == 0) {
         handlerContext->responseData->httpStatus = MHD_HTTP_CREATED;
         handle_api_key_create(handlerContext, userId);

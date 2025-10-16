@@ -58,7 +58,7 @@
         *slash = '\0';
 
     char *userId = start;
-    char *uuid = slash + SESSIONS_PREFIX_LEN; // after "/sessions/"
+    char *keyId = slash + SESSIONS_PREFIX_LEN; // after "/sessions/"
 
     // Validation
     if (!validate_name(userId) && !validate_uuid(userId)) {
@@ -66,12 +66,12 @@
         return 0;
     }
 
-    if (!validate_uuid(uuid)) {
-        DEBUG_PRINTF("Invalid UUID: %s\n", uuid);
+    if (!validate_uuid(keyId) && !validate_name(keyId)) {
+        DEBUG_PRINTF("Invalid key: %s\n", keyId);
         return 0;
     }
 
-    handle_api_key(yyget_extra(yyscanner), userId, uuid);
+    handle_api_key(yyget_extra(yyscanner), userId, keyId);
 }
 
 "/users/"[^/]+"/sessions" {
