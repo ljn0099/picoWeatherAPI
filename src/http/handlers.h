@@ -37,4 +37,7 @@ void handle_api_key_create(struct HandlerContext *handlerContext, const char *us
 void handle_api_key_list(struct HandlerContext *handlerContext, const char *userId,
                          const char *keyId);
 
+void handle_api_key_delete(struct HandlerContext *handlerContext, const char *userId,
+                           const char *keyId);
+
 #endif

@@ -609,6 +609,45 @@ apiError_t api_key_list(const char *userId, const char *keyId, const struct Auth
     return API_OK;
 }
 
+apiError_t api_key_delete(const char *userId, const char *keyId, const struct AuthData *authData) {
+    if (!authData | !authData->sessionToken)
+        return API_AUTH_ERROR;
+
+    if (!userId || !keyId)
+        return API_INVALID_PARAMS;
+
+    PGconn *conn = get_conn();
+    if (!conn)
+        return API_DB_ERROR;
+
+    if (!validate_session_token(conn, userId, authData->sessionToken)) {
+        release_conn(conn);
+        return API_AUTH_ERROR;
+    }
+
+    const char *paramValues[1] = {keyId};
+
+    PGresult *res = PQexecParams(conn,
+                                 "UPDATE auth.api_keys "
+                                 "SET revoked_at = now() "
+                                 "WHERE (uuid::text = $1 OR name = $1);",
+                                 1, // number of parameters
+                                 NULL, paramValues, NULL, NULL, 0);
+
+    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+        fprintf(stderr, "Error executing the query: %s", PQerrorMessage(conn));
+        PQclear(res);
+        release_conn(conn);
+        return API_DB_ERROR;
+    }
+
+    PQclear(res);
+
+    release_conn(conn);
+
+    return API_OK;
+}
+
 apiError_t weather_data_list(int fields, const char *granularityStr, const char *stationId,
                              const char *timezone, const char *startTime, const char *endTime,
                              json_t **weatherData) {

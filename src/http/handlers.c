@@ -91,6 +91,10 @@ void handle_api_key(struct HandlerContext *handlerContext, const char *userId, c
         handlerContext->responseData->httpStatus = MHD_HTTP_CREATED;
         handle_api_key_create(handlerContext, userId);
     }
+    else if(strcmp(handlerContext->method, "DELETE") == 0) {
+        handlerContext->responseData->httpStatus = MHD_HTTP_NO_CONTENT;
+        handle_api_key_delete(handlerContext, userId, keyId);
+    }
 }
 
 void handle_users_list(struct HandlerContext *handlerContext, const char *userId) {
@@ -339,6 +343,17 @@ void handle_api_key_list(struct HandlerContext *handlerContext, const char *user
     handlerContext->responseData->data = json_dumps(json, JSON_INDENT(2));
 
     json_decref(json);
+}
+
+void handle_api_key_delete(struct HandlerContext *handlerContext, const char *userId,
+                           const char *keyId) {
+    apiError_t code = api_key_delete(userId, keyId, handlerContext->authData);
+
+    if (code != API_OK) {
+        handlerContext->responseData->httpStatus =
+            apiError_to_http(code, &handlerContext->responseData->data);
+        return;
+    }
 }
 
 void handle_weather_data_list(struct HandlerContext *handlerContext, const char *stationId) {
