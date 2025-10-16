@@ -78,22 +78,25 @@ static enum MHD_Result process_param(void *cls, enum MHD_ValueKind kind, const c
         queryData->granularity = strdup(value);
     }
     else if (strcmp(key, "fields") == 0) {
-        char tmp[256];
-        strncpy(tmp, value, sizeof(tmp) - 1);
-        tmp[sizeof(tmp) - 1] = '\0';
+        char *tmp = strdup(value);
+        if (!tmp) return MHD_NO;
 
-        char *token = strtok(tmp, ",");
+        char *saveptr;
+        char *token = strtok_r(tmp, ",", &saveptr);
         queryData->fields = 0;
+
         while (token) {
             int field = string_to_field(token);
             if (field >= 0) {
                 DEBUG_PRINTF("Field: %s\n", token);
                 queryData->fields |= field;
             }
-
-            token = strtok(NULL, ",");
+            token = strtok_r(NULL, ",", &saveptr);
         }
+
+        free(tmp);
     }
+
 
     return MHD_YES;
 }

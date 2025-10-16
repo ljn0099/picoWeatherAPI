@@ -660,6 +660,8 @@ int string_to_field(const char *fieldStr) {
         return DATA_TEMP;
     else if (strcmp(fieldStr, "humidity") == 0)
         return DATA_HUMIDITY;
+    else if (strcmp(fieldStr, "pressure") == 0)
+        return DATA_PRESSURE;
     else if (strcmp(fieldStr, "lux") == 0)
         return DATA_LUX;
     else if (strcmp(fieldStr, "uvi") == 0)
