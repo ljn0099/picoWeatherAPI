@@ -1,3 +1,6 @@
+#include "server.h"
+#include "../utils/utils.h"
+#include "router.h"
 #include <arpa/inet.h>
 #include <microhttpd.h>
 #include <netinet/in.h>
@@ -6,9 +9,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
-#include "../utils/utils.h"
-#include "router.h"
-#include "server.h"
 
 struct MHD_Connection;
 
@@ -81,7 +81,8 @@ static enum MHD_Result process_param(void *cls, enum MHD_ValueKind kind, const c
     }
     else if (strcmp(key, "fields") == 0) {
         char *tmp = strdup(value);
-        if (!tmp) return MHD_NO;
+        if (!tmp)
+            return MHD_NO;
 
         char *saveptr;
         char *token = strtok_r(tmp, ",", &saveptr);
@@ -98,7 +99,6 @@ static enum MHD_Result process_param(void *cls, enum MHD_ValueKind kind, const c
 
         free(tmp);
     }
-
 
     return MHD_YES;
 }

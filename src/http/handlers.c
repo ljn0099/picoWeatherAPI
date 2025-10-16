@@ -1,8 +1,8 @@
 #include <jansson.h>
 #include <microhttpd.h>
+#include <sodium/utils.h>
 #include <stdio.h>
 #include <string.h>
-#include <sodium/utils.h>
 
 #include "../core/weather.h"
 #include "../utils/utils.h"

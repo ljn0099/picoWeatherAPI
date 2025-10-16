@@ -1,9 +1,9 @@
 #include <libpq-fe.h>
 #include <pthread.h>
 #include <stdbool.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <stdio.h>
 
 typedef struct {
     PGconn *conn;

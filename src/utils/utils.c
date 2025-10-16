@@ -1,5 +1,8 @@
 #define _XOPEN_SOURCE 700
 #include "utils.h"
+#include "../core/flags.h"
+#include "../core/weather.h"
+#include "postgres_ext.h"
 #include <ctype.h>
 #include <jansson.h>
 #include <libpq-fe.h>
@@ -17,9 +20,6 @@
 #include <unicode/ucal.h>
 #include <unicode/umachine.h>
 #include <unicode/utypes.h>
-#include "../core/weather.h"
-#include "../core/flags.h"
-#include "postgres_ext.h"
 
 #define GENERIC_WEATHER_QUERY_SIZE 4096
 #define APPEND_QUERY_FIELD(FIELD_FLAG, SQL_EXPR)                                                   \
@@ -399,7 +399,8 @@ bool append_to_buffer(char **buf_ptr, size_t *remaining, const char *fmt, ...) {
 char *build_generic_weather_query(int fields) {
     const char *queryBase = "WITH params AS (\n"
                             "    SELECT\n"
-                            "        (SELECT station_id FROM stations.stations WHERE name = $1 OR uuid::text = $1) AS station_id,\n"
+                            "        (SELECT station_id FROM stations.stations WHERE name = $1 OR "
+                            "uuid::text = $1) AS station_id,\n"
                             "        $2::timestamp AS start_ts,\n"
                             "        $3::timestamp AS end_ts,\n"
                             "        $4::text AS granularity\n"
@@ -532,28 +533,33 @@ char *build_static_query(int fields, granularity_t granularity) {
 
     if (granularity == GRANULARITY_DATA) {
         queryEnd = " FROM weather.weather_data\n"
-                   "WHERE station_id = (SELECT station_id FROM stations.stations WHERE name = $1 OR uuid::text = $1)\n"
+                   "WHERE station_id = (SELECT station_id FROM stations.stations WHERE name = $1 "
+                   "OR uuid::text = $1)\n"
                    "    AND time_range && tstzrange($2, $3)\n"
                    "ORDER BY lower(time_range);";
     }
     else if (granularity == GRANULARITY_HOUR)
         queryEnd = " FROM weather.weather_hourly_summary\n"
-                   "WHERE station_id = (SELECT station_id FROM stations.stations WHERE name = $1 OR uuid::text = $1)\n"
+                   "WHERE station_id = (SELECT station_id FROM stations.stations WHERE name = $1 "
+                   "OR uuid::text = $1)\n"
                    "    AND time_range && tstzrange($2, $3)\n"
                    "ORDER BY lower(time_range);";
     else if (granularity == GRANULARITY_DAY)
         queryEnd = " FROM weather.weather_daily_summary\n"
-                   "WHERE station_id = (SELECT station_id FROM stations.stations WHERE name = $1 OR uuid::text = $1)\n"
+                   "WHERE station_id = (SELECT station_id FROM stations.stations WHERE name = $1 "
+                   "OR uuid::text = $1)\n"
                    "    AND time_range && tstzrange($2, $3)\n"
                    "ORDER BY lower(time_range);";
     else if (granularity == GRANULARITY_MONTH)
         queryEnd = " FROM weather.weather_monthly_summary\n"
-                   "WHERE station_id = (SELECT station_id FROM stations.stations WHERE name = $1 OR uuid::text = $1)\n"
+                   "WHERE station_id = (SELECT station_id FROM stations.stations WHERE name = $1 "
+                   "OR uuid::text = $1)\n"
                    "    AND time_range && tstzrange($2, $3)\n"
                    "ORDER BY lower(time_range);";
     else if (granularity == GRANULARITY_YEAR)
         queryEnd = " FROM weather.weather_yearly_summary\n"
-                   "WHERE station_id = (SELECT station_id FROM stations.stations WHERE name = $1 OR uuid::text = $1)\n"
+                   "WHERE station_id = (SELECT station_id FROM stations.stations WHERE name = $1 "
+                   "OR uuid::text = $1)\n"
                    "    AND time_range && tstzrange($2, $3)\n"
                    "ORDER BY lower(time_range);";
     else
@@ -759,8 +765,10 @@ bool same_timezone_offset_during_range(const char *startStr, const char *endStr,
     UCalendar *cal1 = ucal_open(uTz1, -1, NULL, UCAL_GREGORIAN, &status);
     UCalendar *cal2 = ucal_open(uTz2, -1, NULL, UCAL_GREGORIAN, &status);
     if (U_FAILURE(status) || !cal1 || !cal2) {
-        if (cal1) ucal_close(cal1);
-        if (cal2) ucal_close(cal2);
+        if (cal1)
+            ucal_close(cal1);
+        if (cal2)
+            ucal_close(cal2);
         return false;
     }
 
@@ -789,8 +797,10 @@ bool same_timezone_offset_during_range(const char *startStr, const char *endStr,
         ucal_setMillis(cal2, currentTime, &status);
 
         // Get total UTC offset including DST
-        int32_t offset1 = ucal_get(cal1, UCAL_ZONE_OFFSET, &status) + ucal_get(cal1, UCAL_DST_OFFSET, &status);
-        int32_t offset2 = ucal_get(cal2, UCAL_ZONE_OFFSET, &status) + ucal_get(cal2, UCAL_DST_OFFSET, &status);
+        int32_t offset1 =
+            ucal_get(cal1, UCAL_ZONE_OFFSET, &status) + ucal_get(cal1, UCAL_DST_OFFSET, &status);
+        int32_t offset2 =
+            ucal_get(cal2, UCAL_ZONE_OFFSET, &status) + ucal_get(cal2, UCAL_DST_OFFSET, &status);
 
         // If offsets differ, return false immediately
         if (offset1 != offset2) {

@@ -1,7 +1,7 @@
 #include <signal.h>
+#include <sodium/core.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <sodium/core.h>
 #include <unistd.h>
 
 #include "./http/server.h"
@@ -28,7 +28,7 @@ int main(void) {
         return EXIT_FAILURE;
     }
 
-    if(!init_pool()) {
+    if (!init_pool()) {
         fprintf(stderr, "Failed to initialize db\n");
         return EXIT_FAILURE;
     }

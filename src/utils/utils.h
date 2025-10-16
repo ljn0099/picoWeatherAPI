@@ -1,13 +1,13 @@
 #ifndef UTILS_H
 #define UTILS_H
 
+#include "../core/flags.h"
+#include "../core/weather.h"
 #include <jansson.h>
 #include <libpq-fe.h>
 #include <sodium/utils.h>
 #include <stdbool.h>
 #include <stdio.h>
-#include "../core/flags.h"
-#include "../core/weather.h"
 
 #ifdef DEBUG
 #define DEBUG_PRINTF(...)                                                                          \
