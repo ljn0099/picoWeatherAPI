@@ -475,12 +475,12 @@ char *build_generic_weather_query(int fields) {
                             "d.granularity, ";
 
     const char *queryEnd = " FROM time_ranges d\n"
-                       "LEFT JOIN weather.weather_data wd\n"
-                       "   ON wd.station_id = d.station_id\n"
-                       "   AND wd.time_range && d.time_range\n"
-                       "GROUP BY d.station_id, d.time_range, d.granularity\n"
-                       "HAVING COUNT(wd.*) > 0\n"
-                       "ORDER BY d.time_range;";
+                           "LEFT JOIN weather.weather_data wd\n"
+                           "   ON wd.station_id = d.station_id\n"
+                           "   AND wd.time_range && d.time_range\n"
+                           "GROUP BY d.station_id, d.time_range, d.granularity\n"
+                           "HAVING COUNT(wd.*) > 0\n"
+                           "ORDER BY d.time_range;";
 
     size_t querySize = GENERIC_WEATHER_QUERY_SIZE;
     size_t remaining = GENERIC_WEATHER_QUERY_SIZE;
