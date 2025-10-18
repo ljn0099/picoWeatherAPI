@@ -313,7 +313,7 @@ apiError_t sessions_create(const char *userId, const struct AuthData *authData,
 
     char hashB64[sodium_base64_ENCODED_LEN(crypto_generichash_BYTES, BASE64_VARIANT)];
 
-    generateSessionToken(sessionToken, sessionTokenLen, hashB64, sizeof(hashB64));
+    generate_session_token(sessionToken, sessionTokenLen, hashB64, sizeof(hashB64));
 
     char maxAgeStr[20];
     sprintf(maxAgeStr, "%d", sessionTokenMaxAge);
@@ -609,7 +609,7 @@ apiError_t api_key_create(const char *name, const char *keyType, const char *sta
     char tokenB64[sodium_base64_ENCODED_LEN(KEY_ENTROPY, BASE64_VARIANT)];
     char hashB64[sodium_base64_ENCODED_LEN(crypto_generichash_BYTES, BASE64_VARIANT)];
 
-    generateSessionToken(tokenB64, sizeof(tokenB64), hashB64, sizeof(hashB64));
+    generate_session_token(tokenB64, sizeof(tokenB64), hashB64, sizeof(hashB64));
 
     const char *paramValues[6] = {userId, stationId, name, hashB64, keyType, tokenB64};
 
