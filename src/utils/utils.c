@@ -1,4 +1,3 @@
-#define _XOPEN_SOURCE 700
 #include "utils.h"
 #include "../core/flags.h"
 #include "../core/weather.h"
@@ -15,7 +14,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
 #include <unicode/putil.h>
 #include <unicode/ucal.h>
 #include <unicode/umachine.h>
@@ -375,18 +373,6 @@ json_t *pgresult_to_json(PGresult *res, bool canBeObject) {
     }
 
     return jsonArray;
-}
-
-bool validate_timestamp(const char *timestamp) {
-    if (!timestamp)
-        return false;
-
-    struct tm tm;
-    const char *result = strptime(timestamp, "%Y-%m-%dT%H:%M:%S", &tm);
-    if (result == NULL || *result != '\0')
-        return false; // Invalid format
-
-    return true;
 }
 
 bool validate_email(const char *email) {

@@ -38,8 +38,6 @@ void generate_session_token(char *tokenB64, size_t tokenB64Len, char *hashB64, s
 
 bool get_user_session_token(PGconn *conn, char **userId, const char *sessionToken);
 
-bool validate_timestamp(const char *timestamp);
-
 bool validate_email(const char *email);
 
 char *build_generic_weather_query(int fields);
