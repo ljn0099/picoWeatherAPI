@@ -1,6 +1,7 @@
 #include <jansson.h>
 #include <microhttpd.h>
 #include <sodium/utils.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 
