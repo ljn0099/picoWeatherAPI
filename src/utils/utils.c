@@ -1,8 +1,8 @@
 #define _XOPEN_SOURCE 700
+#include "utils.h"
 #include "../core/flags.h"
 #include "../core/weather.h"
 #include "postgres_ext.h"
-#include "utils.h"
 #include <ctype.h>
 #include <jansson.h>
 #include <libpq-fe.h>
