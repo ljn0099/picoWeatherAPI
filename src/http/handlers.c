@@ -187,6 +187,8 @@ void handle_users_patch(struct HandlerContext *handlerContext, const char *userI
 
     const char *username = json_string_value(json_object_get(root, "username"));
     const char *email = json_string_value(json_object_get(root, "email"));
+    const char *oldPass = json_string_value(json_object_get(root, "old_password"));
+    const char *newPass = json_string_value(json_object_get(root, "new_password"));
 
     // maxStations
     json_t *maxStationsJson = json_object_get(root, "max_stations");
@@ -210,7 +212,7 @@ void handle_users_patch(struct HandlerContext *handlerContext, const char *userI
 
     json_t *json = NULL;
 
-    errorCode = users_patch(userId, username, email, maxStationsPtr, isAdminPtr,
+    errorCode = users_patch(userId, username, email, maxStationsPtr, isAdminPtr, oldPass, newPass,
                             handlerContext->authData, &json);
 
     json_decref(root);

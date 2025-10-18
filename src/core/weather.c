@@ -177,8 +177,8 @@ apiError_t users_delete(const char *userId, const struct AuthData *authData) {
 }
 
 apiError_t users_patch(const char *userId, const char *username, const char *email,
-                       const int *maxStations, const bool *isAdmin, const struct AuthData *authData,
-                       json_t **user) {
+                       const int *maxStations, const bool *isAdmin, const char *oldPass,
+                       const char *newPass, const struct AuthData *authData, json_t **user) {
     if (!authData || !authData->sessionToken)
         return API_AUTH_ERROR;
 
@@ -200,7 +200,26 @@ apiError_t users_patch(const char *userId, const char *username, const char *ema
         return API_AUTH_ERROR;
     }
 
-    const char *paramValues[5] = {userId, username, email, NULL, NULL};
+    const char *paramValues[6] = {userId, username, email, NULL, NULL, NULL};
+
+    char hashedPasswordBuf[crypto_pwhash_STRBYTES];
+    const char *hashedPassPtr = NULL;
+    // Atempt to change password
+    if (oldPass || newPass) {
+        if (validate_password(conn, userId, oldPass)) {
+            // Calculate the password hash
+            if (crypto_pwhash_str(hashedPasswordBuf, newPass, strlen(newPass),
+                                  crypto_pwhash_OPSLIMIT_MODERATE,
+                                  crypto_pwhash_MEMLIMIT_MODERATE) != 0) {
+                return API_MEMORY_ERROR;
+            }
+            hashedPassPtr = hashedPasswordBuf;
+        }
+        else {
+            return API_AUTH_ERROR;
+        }
+    }
+    paramValues[5] = hashedPassPtr;
 
     char maxStationsBuf[20];
     const char *maxStationsStr = NULL;
@@ -221,16 +240,20 @@ apiError_t users_patch(const char *userId, const char *username, const char *ema
         paramValues[3] = maxStationsStr;
         paramValues[4] = isAdminStr;
     }
-    PGresult *res = PQexecParams(
+
+    PGresult *res;
+
+    res = PQexecParams(
         conn,
         "UPDATE auth.users "
         "SET username = COALESCE($2, username), "
         "    email = COALESCE($3, email), "
         "    max_stations = COALESCE($4, max_stations), "
-        "    is_admin = COALESCE($5, is_admin) "
+        "    is_admin = COALESCE($5, is_admin), "
+        "    password = COALESCE($6, password) "
         "WHERE uuid::text = $1 OR username = $1 "
         "RETURNING uuid::text, username, email, max_stations, is_admin, created_at, deleted_at;",
-        5, NULL, paramValues, NULL, NULL, 0);
+        6, NULL, paramValues, NULL, NULL, 0);
 
     if (PQresultStatus(res) != PGRES_TUPLES_OK) {
         fprintf(stderr, "Error executing the query: %s", PQerrorMessage(conn));
@@ -252,6 +275,21 @@ apiError_t users_patch(const char *userId, const char *username, const char *ema
         return API_JSON_ERROR;
     }
 
+    PQclear(res);
+
+    // Revoke all active sessions
+    res = PQexecParams(conn,
+                       "UPDATE auth.user_sessions "
+                       "SET revoked_at = NOW() "
+                       "WHERE user_id = (SELECT user_id FROM auth.users WHERE uuid::text = $1 OR username = $1) "
+                       "AND revoked_at IS NULL;",
+                       1, NULL, &userId, NULL, NULL, 0);
+    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+        fprintf(stderr, "Error executing the query: %s", PQerrorMessage(conn));
+        PQclear(res);
+        release_conn(conn);
+        return API_DB_ERROR;
+    }
     PQclear(res);
 
     release_conn(conn);

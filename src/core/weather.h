@@ -35,8 +35,8 @@ apiError_t users_create(const char *username, const char *email, const char *pas
 apiError_t users_delete(const char *userId, const struct AuthData *authData);
 
 apiError_t users_patch(const char *userId, const char *username, const char *email,
-                       const int *maxStations, const bool *isAdmin, const struct AuthData *authData,
-                       json_t **user);
+                       const int *maxStations, const bool *isAdmin, const char *oldPass,
+                       const char *newPass, const struct AuthData *authData, json_t **user);
 
 apiError_t sessions_create(const char *userId, const struct AuthData *authData,
                            const char *password, char *sessionToken, size_t sessionTokenLen,
