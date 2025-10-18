@@ -849,7 +849,7 @@ apiError_t weather_data_list(int fields, const char *granularityStr, const char 
     if (PQntuples(res) == 0) {
         PQclear(res);
         release_conn(conn);
-        return API_FORBIDDEN;
+        return API_NOT_FOUND;
     }
 
     *weatherData = pgresult_to_json(res, false);
