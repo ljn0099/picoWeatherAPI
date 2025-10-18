@@ -53,6 +53,10 @@ void handle_user(struct HandlerContext *handlerContext, const char *userId) {
         handlerContext->responseData->httpStatus = MHD_HTTP_NO_CONTENT;
         handle_users_delete(handlerContext, userId);
     }
+    else if (strcmp(handlerContext->method, "PATCH") == 0) {
+        handlerContext->responseData->httpStatus = MHD_HTTP_OK;
+        handle_users_patch(handlerContext, userId);
+    }
 }
 
 void handle_sessions(struct HandlerContext *handlerContext, const char *userId,
@@ -91,7 +95,7 @@ void handle_api_key(struct HandlerContext *handlerContext, const char *userId, c
         handlerContext->responseData->httpStatus = MHD_HTTP_CREATED;
         handle_api_key_create(handlerContext, userId);
     }
-    else if(strcmp(handlerContext->method, "DELETE") == 0) {
+    else if (strcmp(handlerContext->method, "DELETE") == 0) {
         handlerContext->responseData->httpStatus = MHD_HTTP_NO_CONTENT;
         handle_api_key_delete(handlerContext, userId, keyId);
     }
@@ -159,6 +163,65 @@ void handle_users_delete(struct HandlerContext *handlerContext, const char *user
             apiError_to_http(code, &handlerContext->responseData->data);
         return;
     }
+}
+
+void handle_users_patch(struct HandlerContext *handlerContext, const char *userId) {
+    apiError_t errorCode;
+
+    if (!handlerContext->requestData->postData || handlerContext->requestData->postDataSize <= 0) {
+        errorCode = API_INVALID_PARAMS;
+        handlerContext->responseData->httpStatus =
+            apiError_to_http(errorCode, &handlerContext->responseData->data);
+        return;
+    }
+
+    json_t *root = json_loadb(handlerContext->requestData->postData,
+                              handlerContext->requestData->postDataSize, 0, NULL);
+
+    if (!root || !json_is_object(root)) {
+        errorCode = API_INVALID_PARAMS;
+        handlerContext->responseData->httpStatus =
+            apiError_to_http(errorCode, &handlerContext->responseData->data);
+        return;
+    }
+
+    const char *username = json_string_value(json_object_get(root, "username"));
+    const char *email = json_string_value(json_object_get(root, "email"));
+
+    // maxStations
+    json_t *maxStationsJson = json_object_get(root, "max_stations");
+    int maxStationsVal;
+    const int *maxStationsPtr = NULL;
+
+    if (json_is_integer(maxStationsJson)) {
+        maxStationsVal = (int)json_integer_value(maxStationsJson);
+        maxStationsPtr = &maxStationsVal;
+    }
+
+    // isAdmin
+    bool isAdminVal;
+    const bool *isAdminPtr = NULL;
+
+    json_t *isAdminJson = json_object_get(root, "is_admin");
+    if (json_is_boolean(isAdminJson)) {
+        isAdminVal = json_is_true(isAdminJson);
+        isAdminPtr = &isAdminVal;
+    }
+
+    json_t *json = NULL;
+
+    errorCode = users_patch(userId, username, email, maxStationsPtr, isAdminPtr,
+                            handlerContext->authData, &json);
+
+    json_decref(root);
+
+    if (errorCode != API_OK) {
+        handlerContext->responseData->httpStatus =
+            apiError_to_http(errorCode, &handlerContext->responseData->data);
+        return;
+    }
+    handlerContext->responseData->data = json_dumps(json, JSON_INDENT(2));
+    json_decref(json);
 }
 
 void handle_sessions_create(struct HandlerContext *handlerContext, const char *userId) {

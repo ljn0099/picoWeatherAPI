@@ -18,6 +18,8 @@ void handle_users_create(struct HandlerContext *handlerContext);
 
 void handle_users_delete(struct HandlerContext *handlerContext, const char *userId);
 
+void handle_users_patch(struct HandlerContext *handlerContext, const char *userId);
+
 void handle_sessions_create(struct HandlerContext *handlerContext, const char *userId);
 
 void handle_sessions_list(struct HandlerContext *handlerContext, const char *userId,

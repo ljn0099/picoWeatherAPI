@@ -176,6 +176,89 @@ apiError_t users_delete(const char *userId, const struct AuthData *authData) {
     return API_OK;
 }
 
+apiError_t users_patch(const char *userId, const char *username, const char *email,
+                       const int *maxStations, const bool *isAdmin, const struct AuthData *authData,
+                       json_t **user) {
+    if (!authData || !authData->sessionToken)
+        return API_AUTH_ERROR;
+
+    if (!userId)
+        return API_INVALID_PARAMS;
+
+    if (username && !validate_name(username))
+        return API_INVALID_PARAMS;
+
+    if (email && !validate_email(email))
+        return API_INVALID_PARAMS;
+
+    PGconn *conn = get_conn();
+    if (!conn)
+        return API_DB_ERROR;
+
+    if (!validate_session_token(conn, userId, authData->sessionToken)) {
+        release_conn(conn);
+        return API_AUTH_ERROR;
+    }
+
+    const char *paramValues[5] = {userId, username, email, NULL, NULL};
+
+    char maxStationsBuf[20];
+    const char *maxStationsStr = NULL;
+
+    if (validate_admin_session_token(conn, authData->sessionToken)) {
+        if (maxStations) {
+            snprintf(maxStationsBuf, sizeof(maxStationsBuf), "%d", *maxStations);
+            maxStationsStr = maxStationsBuf;
+        }
+
+        const char *isAdminStr = NULL;
+        if (isAdmin) {
+            if (*isAdmin)
+                isAdminStr = "true";
+            else
+                isAdminStr = "false";
+        }
+        paramValues[3] = maxStationsStr;
+        paramValues[4] = isAdminStr;
+    }
+    PGresult *res = PQexecParams(
+        conn,
+        "UPDATE auth.users "
+        "SET username = COALESCE($2, username), "
+        "    email = COALESCE($3, email), "
+        "    max_stations = COALESCE($4, max_stations), "
+        "    is_admin = COALESCE($5, is_admin) "
+        "WHERE uuid::text = $1 OR username = $1 "
+        "RETURNING uuid::text, username, email, max_stations, is_admin, created_at, deleted_at;",
+        5, NULL, paramValues, NULL, NULL, 0);
+
+    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        fprintf(stderr, "Error executing the query: %s", PQerrorMessage(conn));
+        PQclear(res);
+        release_conn(conn);
+        return API_DB_ERROR;
+    }
+
+    if (PQntuples(res) == 0) {
+        PQclear(res);
+        release_conn(conn);
+        return API_NOT_FOUND;
+    }
+
+    *user = pgresult_to_json(res, true);
+    if (!*user) {
+        PQclear(res);
+        release_conn(conn);
+        return API_JSON_ERROR;
+    }
+
+    PQclear(res);
+
+    release_conn(conn);
+
+    return API_OK;
+}
+
 apiError_t sessions_create(const char *userId, const struct AuthData *authData,
                            const char *password, char *sessionToken, size_t sessionTokenLen,
                            int sessionTokenMaxAge, json_t **session) {
