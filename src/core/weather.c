@@ -570,7 +570,7 @@ apiError_t stations_list(const char *stationId, json_t **stations) {
     if (PQntuples(res) == 0) {
         PQclear(res);
         release_conn(conn);
-        return API_FORBIDDEN;
+        return API_NOT_FOUND;
     }
 
     if (!stationId)
