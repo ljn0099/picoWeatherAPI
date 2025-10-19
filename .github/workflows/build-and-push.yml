@@ -29,7 +29,7 @@ jobs:
 
       - name: Build and push Docker image
         run: |
-          IMAGE_NAME=ghcr.io/${{ github.repository_owner }}/picoWeatherAPI
+          IMAGE_NAME=ghcr.io/${{ github.repository_owner }}/pico_weather_api
           docker buildx build \
             --platform linux/amd64,linux/arm64 \
             -t $IMAGE_NAME:latest \
