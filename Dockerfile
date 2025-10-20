@@ -28,8 +28,7 @@ RUN apk add --no-cache \
     jansson \
     libsodium \
     icu-data-full \
-    icu-libs \
-    bash
+    icu-libs
 
 RUN addgroup -S apigroup && adduser -S apiuser -G apigroup
 
