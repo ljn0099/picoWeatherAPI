@@ -277,21 +277,23 @@ apiError_t users_patch(const char *userId, const char *username, const char *ema
 
     PQclear(res);
 
-    // Revoke all active sessions
-    res = PQexecParams(
-        conn,
-        "UPDATE auth.user_sessions "
-        "SET revoked_at = NOW() "
-        "WHERE user_id = (SELECT user_id FROM auth.users WHERE uuid::text = $1 OR username = $1) "
-        "AND revoked_at IS NULL;",
-        1, NULL, &userId, NULL, NULL, 0);
-    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-        fprintf(stderr, "Error executing the query: %s", PQerrorMessage(conn));
+    // Revoke all active sessions only on password change
+    if (hashedPassPtr) {
+        res = PQexecParams(
+            conn,
+            "UPDATE auth.user_sessions "
+            "SET revoked_at = NOW() "
+            "WHERE user_id = (SELECT user_id FROM auth.users WHERE uuid::text = $1 OR username = $1) "
+            "AND revoked_at IS NULL;",
+            1, NULL, &userId, NULL, NULL, 0);
+        if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+            fprintf(stderr, "Error executing the query: %s", PQerrorMessage(conn));
+            PQclear(res);
+            release_conn(conn);
+            return API_DB_ERROR;
+        }
         PQclear(res);
-        release_conn(conn);
-        return API_DB_ERROR;
     }
-    PQclear(res);
 
     release_conn(conn);
 
