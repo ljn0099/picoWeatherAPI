@@ -1,0 +1,1231 @@
+openapi: 3.0.4
+info:
+  title: Pico Weather API
+  description: |
+    Pico Weather Station API.
+
+    **Data Usage Notice:** All data exposed by this API, **except for the `users`, `sessions`, and `api-keys` endpoints**, is considered **public domain** and may be freely used without any legal restrictions.
+  license:
+    name: MIT
+    url: https://github.com/ljn0099/picoWeatherAPI/blob/main/LICENSE
+  version: 1.0.0
+externalDocs:
+  description: API Source Code
+  url: https://github.com/ljn0099/picoWeatherAPI
+tags:
+  - name: users
+    description: Operations about users
+  - name: sessions
+    description: Operations about sessions
+  - name: api-keys
+    description: Operations about api keys
+  - name: stations
+    description: Operations about stations
+  - name: weather-data
+    description: Operations about weather data
+paths:
+# -------------------------------------------
+  /users:
+    get:
+      tags:
+        - users
+      summary: Get a list of all the users
+      description: Only admin users are able to list all the users.
+      security:
+        - sessionCookieAuth: []
+      responses:
+        '200':
+          description: List of all the users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+        '401':
+          description: Unauthorized - Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthErrorResponse'
+        '404':
+          description: Not Found - User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorResponse'
+        '500':
+          description: Internal Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      tags:
+        - users
+      summary: Create a new user
+      requestBody:
+        description: Create a new user
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserCreate'
+        required: true
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Bad Request - Invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvalidErrorResponse'
+        '500':
+          description: Internal Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /users/{user_id}:
+    get:
+      tags:
+        - users
+      summary: Get an specific user data by their UUID or username
+      description: It will only return if you are an admin or the session token corresponds to that user.
+      security:
+        - sessionCookieAuth: []
+      parameters:
+        - in: path
+          name: user_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Sucessfull operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          description: Unauthorized - Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthErrorResponse'
+        '404':
+          description: Not Found - User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorResponse'
+        '500':
+          description: Internal Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags:
+        - users
+      summary: Soft deletes an user permantly by their UUID or username
+      description: Required to be admin or the account owner
+      security:
+        - sessionCookieAuth: []
+      parameters:
+        - in: path
+          name: user_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Sucessfull operation
+        '401':
+          description: Unauthorized - Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthErrorResponse'
+        '500':
+          description: Internal Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    patch:
+      tags:
+        - users
+      summary: Update a user's data
+      description: Update a user's fields. Requires admin rights or the user themselves. Password change requires old password.
+      security:
+        - sessionCookieAuth: []
+      parameters:
+        - in: path
+          name: user_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        description: Fields to update for the user
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserUpdate'
+        required: true
+      responses:
+        '200':
+          description: Successful operation - returns updated user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Bad Request - Invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvalidErrorResponse'
+        '401':
+          description: Unauthorized - Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthErrorResponse'
+        '404':
+          description: Not Found - User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorResponse'
+        '500':
+          description: Internal Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+# -------------------------------------------
+  /users/{user_id}/sessions:
+    get:
+      tags:
+        - sessions
+      summary: Get a list of all active sessions for a user by UUID or username
+      description: Returns all active sessions for the specified user. Requires a valid session.
+      security:
+        - sessionCookieAuth: []
+      parameters:
+        - in: path
+          name: user_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Successful operation - list of sessions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Session'
+        '400':
+          description: Bad Request - Invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvalidErrorResponse'
+        '401':
+          description: Unauthorized - Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthErrorResponse'
+        '404':
+          description: Not Found - No sessions found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorResponse'
+        '500':
+          description: Internal Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  
+    post:
+      tags:
+        - sessions
+      summary: Create a new session for a user
+      description: Creates a new session with password authentication. Returns the session object.
+      security:
+        - sessionCookieAuth: []
+      parameters:
+        - in: path
+          name: user_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        description: User password to create the session
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SessionCreate'
+      responses:
+        '200':
+          description: Successful operation - returns the created session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '400':
+          description: Bad Request - Invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvalidErrorResponse'
+        '401':
+          description: Unauthorized - Authentication failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthErrorResponse'
+        '404':
+          description: Not Found - User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorResponse'
+        '500':
+          description: Internal Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  
+  /users/{user_id}/sessions/{session_uuid}:
+    get:
+      tags:
+        - sessions
+      summary: Get details of a specific session by UUID
+      description: Returns details of a session if it exists and the session is valid.
+      security:
+        - sessionCookieAuth: []
+      parameters:
+        - in: path
+          name: user_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: path
+          name: session_uuid
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Successful operation - returns the session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '400':
+          description: Bad Request - Invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvalidErrorResponse'
+        '401':
+          description: Unauthorized - Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthErrorResponse'
+        '404':
+          description: Not Found - Session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorResponse'
+        '500':
+          description: Internal Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  
+    delete:
+      tags:
+        - sessions
+      summary: Revoke a session permanently by UUID
+      description: Marks a session as revoked. Requires a valid session.
+      security:
+        - sessionCookieAuth: []
+      parameters:
+        - in: path
+          name: user_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: path
+          name: session_uuid
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Successful operation - session revoked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '400':
+          description: Bad Request - Invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvalidErrorResponse'
+        '401':
+          description: Unauthorized - Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthErrorResponse'
+        '404':
+          description: Not Found - Session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorResponse'
+        '500':
+          description: Internal Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+# -------------------------------------------
+  /users/{user_id}/api-keys:
+    post:
+      tags:
+        - api-keys
+      summary: Create a new API key for a user
+      description: Creates an API key for a given station. Requires a valid session.
+      security:
+        - sessionCookieAuth: []
+      parameters:
+        - in: path
+          name: user_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        description: Fields required to create an API key
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiKeyCreate'
+      responses:
+        '200':
+          description: Successful operation - returns the created API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiKey'
+        '400':
+          description: Bad Request - Invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvalidErrorResponse'
+        '401':
+          description: Unauthorized - Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthErrorResponse'
+        '404':
+          description: Not Found - User or station not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorResponse'
+        '500':
+          description: Internal Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    get:
+      tags:
+        - api-keys
+      summary: List all API keys of a user
+      description: Returns all active API keys for a user. Requires a valid session.
+      security:
+        - sessionCookieAuth: []
+      parameters:
+        - in: path
+          name: user_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Successful operation - returns a list of API keys
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ApiKey'
+        '400':
+          description: Bad Request - Invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvalidErrorResponse'
+        '401':
+          description: Unauthorized - Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthErrorResponse'
+        '404':
+          description: Not Found - No API keys found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorResponse'
+        '500':
+          description: Internal Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /users/{user_id}/api-keys/{api_key_id}:
+    get:
+      tags:
+        - api-keys
+      summary: Get details of an API key by UUID or name
+      description: Returns a single API key for a user if it exists and the session is valid.
+      security:
+        - sessionCookieAuth: []
+      parameters:
+        - in: path
+          name: user_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: path
+          name: api_key_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiKey'
+        '400':
+          description: Bad Request - Invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvalidErrorResponse'
+        '401':
+          description: Unauthorized - Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthErrorResponse'
+        '404':
+          description: Not Found - API key not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorResponse'
+        '500':
+          description: Internal Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  
+    delete:
+      tags:
+        - api-keys
+      summary: Soft delete an API key permanently by UUID or name
+      description: Marks an API key as revoked. Requires a valid session.
+      security:
+        - sessionCookieAuth: []
+      parameters:
+        - in: path
+          name: user_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: path
+          name: api_key_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Successful operation - API key revoked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiKey'
+        '400':
+          description: Bad Request - Invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvalidErrorResponse'
+        '401':
+          description: Unauthorized - Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthErrorResponse'
+        '404':
+          description: Not Found - API key not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorResponse'
+        '500':
+          description: Internal Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  # -------------------------------------------
+  /stations:
+    get:
+      tags:
+        - stations
+      summary: List all stations
+      description: Returns a list of all stations. Requires a valid session for restricted data.
+      security:
+        - {}
+        - sessionCookieAuth: []
+      responses:
+        '200':
+          description: Successful operation - list of stations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Station'
+        '400':
+          description: Bad Request - Invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvalidErrorResponse'
+        '401':
+          description: Unauthorized - Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthErrorResponse'
+        '404':
+          description: Not Found - No stations found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorResponse'
+        '500':
+          description: Internal Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  
+    post:
+      tags:
+        - stations
+      summary: Create a new station
+      description: Creates a new station for the authenticated user. Requires a valid session.
+      security:
+        - sessionCookieAuth: []
+      requestBody:
+        description: Station details
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StationCreate'
+      responses:
+        '200':
+          description: Successful operation - returns the created station
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Station'
+        '400':
+          description: Bad Request - Invalid parameters (invalid name)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvalidErrorResponse'
+        '401':
+          description: Unauthorized - Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthErrorResponse'
+        '403':
+          description: Forbidden - Max stations limit reached
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForbiddenErrorResponse'
+        '500':
+          description: Internal Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  
+  /stations/{station_uuid}:
+    get:
+      tags:
+        - stations
+      summary: Get details of a station
+      description: Returns the details of a station by UUID. Publicly accessible.
+      security:
+        - {}
+        - sessionCookieAuth: []
+      parameters:
+        - in: path
+          name: station_uuid
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Successful operation - station details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Station'
+        '400':
+          description: Bad Request - Invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvalidErrorResponse'
+        '404':
+          description: Not Found - Station not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorResponse'
+        '500':
+          description: Internal Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  # -------------------------------------------
+  /stations/{station_id}/data:
+    get:
+      tags:
+        - weather-data
+      parameters:
+        - in: path
+          name: station_id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: timezone
+          required: true
+          schema:
+            type: string
+            example: Europe/Madrid
+        - in: query
+          name: start_time
+          required: true
+          schema:
+            type: string
+            format: date-time
+            example: 2025-09-11T00:30:00
+        - in: query
+          name: end_time
+          required: true
+          schema:
+            type: string
+            format: date-time
+            example: 2025-09-11T23:30:00
+        - in: query
+          name: granularity
+          required: true
+          schema:
+            type: string
+            enum: [raw, hour, day, month, year]
+            example: hour
+        - in: query
+          name: fields
+          required: true
+          schema:
+            type: string
+            example: max_temperature,min_temperature
+          description: |
+            Available fields depend on the **granularity**:
+        
+
+            - `raw`:
+              - **Temperature:** `temperature`
+              - **Humidity:** `humidity`
+              - **Pressure:** `pressure`
+              - **Light:** `lux`
+              - **UV:** `uvi`
+              - **Wind:** `wind_speed, wind_direction`
+              - **Gust:** `gust_speed, gust_direction`
+              - **Rainfall:** `rainfall`
+              - **Solar:** `solar_irradiance`
+
+        
+            - `hour`:
+              - **Temperature:** `avg_temperature`
+              - **Humidity:** `avg_humidity`
+              - **Pressure:** `avg_pressure`
+              - **Rainfall:** `sum_rainfall, stddev_rainfall`
+              - **Wind:** `avg_wind_speed, avg_wind_direction, stddev_wind_speed`
+              - **Gust:** `max_gust_speed, max_gust_direction`
+              - **Light:** `avg_lux`
+              - **UV:** `avg_uvi`
+              - **Solar:** `avg_solar_irradiance`
+        
+            - `day`:
+              - **Temperature:** `max_temperature, min_temperature, avg_temperature, stddev_temperature`
+              - **Humidity:** `max_humidity, min_humidity, avg_humidity, stddev_humidity`
+              - **Pressure:** `max_pressure, min_pressure, avg_pressure`
+              - **Rainfall:** `sum_rainfall, stddev_rainfall`
+              - **Wind:** `avg_wind_speed, avg_wind_direction, stddev_wind_speed`
+              - **Gust:** `max_gust_speed, max_gust_direction`
+              - **Light:** `max_lux, avg_lux`
+              - **UV:** `max_uvi, avg_uvi`
+              - **Solar:** `avg_solar_irradiance`
+              - **Misc:** `wind_run`
+            - `month`:
+              - **Temperature:** `max_temperature, min_temperature, avg_temperature, stddev_temperature`
+              - **Humidity:** `max_humidity, min_humidity, avg_humidity, stddev_humidity`
+              - **Pressure:** `max_pressure, min_pressure, avg_pressure`
+              - **Rainfall:** `sum_rainfall, stddev_rainfall`
+              - **Wind:** `avg_wind_speed, avg_wind_direction, stddev_wind_speed`
+              - **Gust:** `max_gust_speed, max_gust_direction`
+              - **Light:** `max_lux, avg_lux`
+              - **UV:** `max_uvi, avg_uvi`
+              - **Solar:** `avg_solar_irradiance`
+          
+            - `year`:
+              - **Temperature:** `max_temperature, min_temperature, avg_temperature, stddev_temperature`
+              - **Humidity:** `max_humidity, min_humidity, avg_humidity, stddev_humidity`
+              - **Pressure:** `max_pressure, min_pressure, avg_pressure`
+              - **Rainfall:** `sum_rainfall, stddev_rainfall`
+              - **Wind:** `avg_wind_speed, avg_wind_direction, stddev_wind_speed`
+              - **Gust:** `max_gust_speed, max_gust_direction`
+              - **Light:** `max_lux, avg_lux`
+              - **UV:** `max_uvi, avg_uvi`
+              - **Solar:** `avg_solar_irradiance`
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WeatherData'
+
+components:
+  securitySchemes:
+    sessionCookieAuth:
+      type: apiKey
+      in: cookie
+      name: sessionid
+  schemas:
+    ApiKeyTypes:
+      type: string
+      enum:
+        - stations_management
+        - weather_upload
+        - stations_control
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Internal server error"
+    InvalidErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Invalid parameters"
+    AuthErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Authentication error"
+    ForbiddenErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Forbidden"
+    NotFoundErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Resource not found"
+
+    StationCreate:
+      type: object
+      properties:
+        name:
+          type: string
+          example: The South Station
+        lat:
+          type: number
+          format: float
+        lon:
+          type: number
+          format: float
+        altitude:
+          type: number
+          format: float
+        deleted_at:
+          type: string
+          format: date-time
+      required:
+        - name
+        - lat
+        - lon
+        - altitude
+    Station:
+      type: object
+      properties:
+        uuid:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: The South Station
+        lat:
+          type: number
+          format: float
+        lon:
+          type: number
+          format: float
+        altitude:
+          type: number
+          format: float
+      required:
+        - uuid
+        - name
+        - lat
+        - lon
+        - altitude
+    ApiKeyCreate:
+      type: object
+      properties:
+        name:
+          type: string
+          example: Test key
+        station_id:
+          type: string
+          example: station1234
+        api_key_type:
+          $ref: '#/components/schemas/ApiKeyTypes'
+      required:
+        - name
+        - api_key_type
+        - station_id
+    ApiKey:
+      type: object
+      properties:
+        uuid:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: Test key
+        station_id:
+          type: string
+          example: station1234
+        api_key_type:
+          $ref: '#/components/schemas/ApiKeyTypes'
+        created_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+      required:
+        - uuid
+        - name
+        - key_type
+        - station_id
+        - created_at
+        - expires_at
+    UserCreate:
+      type: object
+      properties:
+        username:
+          type: string
+          example: theUser
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+          example: superSecretPassword
+      required:
+        - username
+        - email
+        - password
+    User:
+      type: object
+      properties:
+        uuid:
+          type: string
+          format: uuid
+        username:
+          type: string
+          example: theUser
+        email:
+          type: string
+          format: email
+          example: john@email.com
+        created_at:
+          type: string
+          format: date-time
+        max_stations:
+          type: integer
+          format: int32
+          example: '5'
+        is_admin:
+          type: boolean
+          example: false
+      required:
+        - uuid
+        - username
+        - email
+        - created_at
+        - max_stations
+        - is_admin
+    SessionCreate:
+      type: object
+      properties:
+        password:
+          type: string
+          format: password
+      required:
+        - password
+    Session:
+      type: object
+      properties:
+        uuid:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+        last_seen_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+        reauthed_at:
+          type: string
+          format: date-time
+        ip_address:
+          type: string
+          example: 1.1.1.1
+        user_agent:
+          type: string
+          example: >-
+            Mozilla/5.0 (platform; rv:gecko-version) Gecko/gecko-trail
+            Firefox/firefox-version
+      required:
+        - uuid
+        - created_at
+        - last_seen_at
+        - expires_at
+        - reauthed_at
+        - ip_address
+    UserUpdate:
+      type: object
+      properties:
+        username:
+          type: string
+        email:
+          type: string
+        maxStations:
+          type: integer
+        isAdmin:
+          type: boolean
+        oldPass:
+          type: string
+        newPass:
+          type: string
+      example:
+        username: "new_username"
+        email: "new@example.com"
+        maxStations: 5
+        isAdmin: false
+        oldPass: "oldpass123"
+        newPass: "newpass456"
+    WeatherData:
+      type: object
+      properties:
+        start_time:
+          type: string
+          format: date-time
+        end_time:
+          type: string
+          format: date-time
+        temperature:
+          type: number
+          format: float
+        humidity:
+          type: number
+          format: float
+        pressure:
+          type: number
+          format: float
+        lux:
+          type: number
+          format: float
+        uvi:
+          type: number
+          format: float
+        wind_speed:
+          type: number
+          format: float
+        wind_direction:
+          type: number
+          format: float
+        gust_speed:
+          type: number
+          format: float
+        gust_direction:
+          type: number
+          format: float
+        rainfall:
+          type: number
+          format: float
+        solar_irradiance:
+          type: number
+          format: float
+        avg_temperature:
+          type: number
+          format: float
+        max_temperature:
+          type: number
+          format: float
+        min_temperature:
+          type: number
+          format: float
+        stddev_temperature:
+          type: number
+          format: float
+        avg_humidity:
+          type: number
+          format: float
+        max_humidity:
+          type: number
+          format: float
+        min_humidity:
+          type: number
+          format: float
+        stddev_humidity:
+          type: number
+          format: float
+        avg_pressure:
+          type: number
+          format: float
+        max_pressure:
+          type: number
+          format: float
+        min_pressure:
+          type: number
+          format: float
+        sum_rainfall:
+          type: number
+          format: float
+        stddev_rainfall:
+          type: number
+          format: float
+        avg_wind_speed:
+          type: number
+          format: float
+        avg_wind_direction:
+          type: number
+          format: float
+        stddev_wind_speed:
+          type: number
+          format: float
+        wind_run:
+          type: number
+          format: float
+        max_gust_speed:
+          type: number
+          format: float
+        max_gust_direction:
+          type: number
+          format: float
+        avg_lux:
+          type: number
+          format: float
+        max_lux:
+          type: number
+          format: float
+        avg_uvi:
+          type: number
+          format: float
+        max_uvi:
+          type: number
+          format: float
+        avg_solar_irradiance:
+          type: number
+          format: float
+      required:
+        - id
+        - start_time
+        - end_time
