@@ -277,8 +277,8 @@ apiError_t users_patch(const char *userId, const char *username, const char *ema
 
     PQclear(res);
 
-    // Revoke all active sessions only on password change
-    if (hashedPassPtr) {
+    // Revoke all active sessions only on password change or username change
+    if (hashedPassPtr || username) {
         res = PQexecParams(
             conn,
             "UPDATE auth.user_sessions "
