@@ -67,6 +67,9 @@ static enum MHD_Result process_param(void *cls, enum MHD_ValueKind kind, const c
     (void)kind;
     DEBUG_PRINTF("Processing: %s = %s\n", key, value);
 
+    if (!value)
+        return MHD_NO;
+
     if (strcmp(key, "start_time") == 0) {
         queryData->startTime = strdup(value);
     }
