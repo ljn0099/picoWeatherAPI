@@ -633,7 +633,7 @@ apiError_t api_key_create(const char *name, const char *keyType, const char *sta
         "  api_key_type, "
         "  created_at, "
         "  expires_at, "
-        "  $2::text AS station_uuid, "
+        "  $2::text AS station_id, "
         "  $6::text AS api_key;",
         6, NULL, paramValues, NULL, NULL, 0);
 
@@ -689,8 +689,7 @@ apiError_t api_key_list(const char *userId, const char *keyId, const struct Auth
         "       k.api_key_type, "
         "       s.name AS station_id, "
         "       k.created_at,"
-        "       k.expires_at, "
-        "       k.revoked_at "
+        "       k.expires_at "
         "FROM auth.api_keys k "
         "JOIN auth.users u ON k.user_id = u.user_id "
         "LEFT JOIN stations.stations s ON k.station_id = s.station_id "
